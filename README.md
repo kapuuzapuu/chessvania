@@ -1,13 +1,13 @@
 # Chessvania
 
-*The build you see here may be a few (or many) versions behind the current development state of the game (on my local system). As a result, what you see on this repository is probably an inaccurate reflection of the amount of progress made in actuality.*
+*I am actively working on developing and fleshing out chessvania. The repo in its current state is a far cry from the iteration of the game I am currently working on. Incomplete features that exist in the current build will simply not exist in the final product. The game has largely diverged from what was initially planned.*
 
 **Currently working on:**
-* Stockfish implementation
-* Upgrade System
-* Shop/Currency
-* Visual Consistency + Polish
+* Ironing out bugs
+* Player loadouts and enemy positions
+* Shop/Currency mechanics
+* Visual Consistency + Polish (menu screens, animations, etc.).
 
 **Future plans:**
-* Multiplayer mode (to play with your friends)
-* Fantasy Piece Swaps
+* Multiplayer mode (SCRAPPED!)
+* Fantasy Piece Swaps (SCRAPPED!)
