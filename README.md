@@ -290,6 +290,31 @@ None of the numbers are balanced. Payout tiers, prices, the Elo ramp, material
 targets and stake modifiers are placeholder scaffolds living in `config.py`, to be
 tuned once the game has been played properly.
 
+## Future features
+
+Four items from the post-build change list are still outstanding. None are hard;
+three of them are blocked on a decision rather than on code.
+
+**Cell borders, larger pieces, and a responsive top bar.** The board would read
+far better drawn at chess-tui scale, with ruled cells and pieces that aren't a
+single character. This is blocked on one question: **can the recommended terminal
+size go above 80×24?** Pieces at that scale need roughly 56×24 for the board
+alone. Everything currently fits 80×24 exactly — the three columns are 17+28+33 —
+and `tests/test_ui.py` pins that with a regression test. It is a budget decision,
+not a coding one.
+
+**Filled glyphs for the player's pieces, togglable.** Mechanically trivial —
+`chess.Piece.unicode_symbol(invert_color=True)` — but the toggle has nowhere to
+live.
+
+**A way to permanently disable the boot animation.** Same problem: nowhere to put
+the switch.
+
+The last two resolve together. The menu is new game / load / bestiary /
+achievements / quit, with no settings entry, so either a settings screen gets
+added to it, or both become plain constants in [config.py](chessvania/config.py)
+in the style of `DEV_MODE`. That choice is still open.
+
 ## Licence
 
 GPL-3.0-or-later — python-chess is GPL-3.0, so this is too.
