@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chess Roguelike — Terminal Mockup</title>
+<style>
+  :root { --mono: "SF Mono","JetBrains Mono","Fira Code",Menlo,Consolas,monospace; }
+  * { box-sizing:border-box; }
+  body{
+    background:#05060a; margin:0; min-height:100vh; display:flex;
+    align-items:center; justify-content:center; padding:22px; font-family:var(--mono);
+  }
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+  button:hover{ filter:brightness(1.35); }
+  .slot:hover{ border-color:#3a4150 !important; }
+  /* faux scanline / terminal vibe, very subtle */
+  .crt{ position:relative; }
+  .crt:after{
+    content:""; position:absolute; inset:0; pointer-events:none; border-radius:8px;
+    background:repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px);
+  }
+</style>
+</head>
+<body>
+<h2 class="sr-only">Terminal-style mockup of a chess roguelike: a 16-slot inventory on the left, a monospace chess board in the center, a move log and live boon-payout readout on the right, and gold, run, ante and fight counters across the top bar.</h2>
+
+<div class="crt" style="background:#0b0d12; border:1px solid #1c1f27; border-radius:8px; padding:0; color:#c3c8d2; width:860px; max-width:100%; box-shadow:0 0 0 1px #000, 0 20px 60px rgba(0,0,0,.6);">
+
+  <!-- fake window chrome -->
+  <div style="display:flex; align-items:center; gap:7px; padding:9px 12px; border-bottom:1px solid #1c1f27;">
+    <span style="width:11px;height:11px;border-radius:50%;background:#e2655f;"></span>
+    <span style="width:11px;height:11px;border-radius:50%;background:#e0b24c;"></span>
+    <span style="width:11px;height:11px;border-radius:50%;background:#5dcaa5;"></span>
+    <span style="margin-left:8px; color:#4a4e58; font-size:11px;">chess-roguelike — ~/games — 80×24</span>
+  </div>
+
+  <div style="padding:14px 16px 16px;">
+
+    <!-- TOP BAR -->
+    <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #1c1f27; padding-bottom:10px; margin-bottom:12px;">
+      <div style="display:flex; align-items:baseline; gap:10px;">
+        <span style="color:#e0b24c; font-size:13px; letter-spacing:2px;">◆ GAMBIT</span>
+        <span style="color:#5a5f6b; font-size:11px;">the basilisk · mini-boss</span>
+      </div>
+      <div style="display:flex; gap:16px; font-size:11px;">
+        <span style="color:#5a5f6b;">RUN <span style="color:#c3c8d2;">03</span></span>
+        <span style="color:#5a5f6b;">ANTE <span style="color:#c3c8d2;">2</span><span style="color:#3a3d45;">/3</span></span>
+        <span style="color:#5a5f6b;">FIGHT <span style="color:#c3c8d2;">3</span><span style="color:#3a3d45;">/3</span></span>
+        <span style="color:#5a5f6b;">ELO <span style="color:#e2655f;">1600</span></span>
+        <span style="color:#5a5f6b;">GOLD <span style="color:#e0b24c;">◇ 26</span></span>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:14px; align-items:flex-start;">
+
+      <!-- LEFT: INVENTORY 16 -->
+      <div style="flex:0 0 auto;">
+        <div style="color:#5a5f6b; font-size:10px; letter-spacing:1.5px; margin-bottom:7px;">INVENTORY <span style="color:#3a3d45;">5/16</span></div>
+        <div id="inv" style="display:grid; grid-template-columns:repeat(4,34px); grid-auto-rows:34px; gap:5px;"></div>
+        <div style="color:#4a4e58; font-size:10px; margin-top:9px; line-height:1.5;">
+          swaps left <span style="color:#5dcaa5;">3</span><br>
+          bench reserves
+        </div>
+      </div>
+
+      <!-- CENTER: BOARD -->
+      <div style="flex:0 0 auto;">
+        <div id="board" style="line-height:0; user-select:none; border:1px solid #1c1f27; border-radius:3px; overflow:hidden;"></div>
+        <div style="display:flex; gap:6px; margin-top:9px; flex-wrap:wrap;">
+          <button id="play" style="font-family:var(--mono); font-size:11px; background:#141720; color:#c3c8d2; border:1px solid #262a34; border-radius:3px; padding:6px 10px; cursor:pointer;">▶ Bxe5</button>
+          <button id="flash" style="font-family:var(--mono); font-size:11px; background:#141720; color:#c3c8d2; border:1px solid #262a34; border-radius:3px; padding:6px 10px; cursor:pointer;">⚡ enemy hits</button>
+          <button id="reset" style="font-family:var(--mono); font-size:11px; background:#141720; color:#7a7f8b; border:1px solid #262a34; border-radius:3px; padding:6px 10px; cursor:pointer;">↺ reset</button>
+        </div>
+      </div>
+
+      <!-- RIGHT: MOVES + ECONOMY -->
+      <div style="flex:1 1 200px; display:flex; flex-direction:column; gap:10px; min-width:0;">
+
+        <!-- live payout readout -->
+        <div style="border:1px solid #1c1f27; border-radius:3px; padding:9px 11px;">
+          <div style="color:#5a5f6b; font-size:10px; letter-spacing:1.5px; margin-bottom:7px;">IF YOU WIN NOW</div>
+          <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:6px;">
+            <span style="color:#5a5f6b; font-size:11px;">moves</span>
+            <span id="movecount" style="color:#c3c8d2; font-size:20px;">14</span>
+            <span id="payout" style="color:#e0b24c; font-size:11px; margin-left:auto;">→ ◇ 4 boons</span>
+          </div>
+          <div id="tiers" style="font-size:10px; color:#4a4e58; line-height:1.7;"></div>
+          <div style="margin-top:7px; padding-top:7px; border-top:1px solid #1c1f27; font-size:10px; color:#5a5f6b;">
+            skip-bonus banked <span style="color:#5dcaa5;">+2</span> <span style="color:#3a3d45;">(next payout compounds)</span>
+          </div>
+        </div>
+
+        <!-- move log -->
+        <div style="border:1px solid #1c1f27; border-radius:3px; padding:9px 11px; flex:1 1 auto;">
+          <div style="color:#5a5f6b; font-size:10px; letter-spacing:1.5px; margin-bottom:7px;">MOVE LOG</div>
+          <div id="log" style="display:flex; flex-direction:column; gap:3px; font-size:11px; color:#8b909c;"></div>
+        </div>
+
+        <!-- inspect -->
+        <div style="border:1px solid #1c1f27; border-radius:3px; padding:9px 11px; min-height:44px;">
+          <div style="color:#5a5f6b; font-size:10px; letter-spacing:1.5px; margin-bottom:4px;">INSPECT</div>
+          <div id="inspect" style="font-size:11px; color:#5a5f6b;">hover a piece</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var CELL=44;
+  var light="#262a33", dark="#161920";
+  var moveHi="#3a3320", capHi="#4a2420";
+
+  // Pieces: NO tiers, NO abilities — just chess. color by side + type value.
+  var P={
+    "wK":{g:"\u265A",c:"#e8eaf0",n:"King",v:"—"},
+    "wQ":{g:"\u265B",c:"#e8eaf0",n:"Queen",v:"9"},
+    "wR":{g:"\u265C",c:"#cfd3db",n:"Rook",v:"5"},
+    "wB":{g:"\u265D",c:"#cfd3db",n:"Bishop",v:"3"},
+    "wN":{g:"\u265E",c:"#cfd3db",n:"Knight",v:"3"},
+    "wP":{g:"\u265F",c:"#9aa0ac",n:"Pawn",v:"1"},
+    "bK":{g:"\u265A",c:"#e2655f",n:"Enemy King (Basilisk)",v:"—"},
+    "bQ":{g:"\u265B",c:"#e2655f",n:"Enemy Queen",v:"9"},
+    "bB":{g:"\u265D",c:"#c77b76",n:"Enemy Bishop",v:"3"},
+    "bN":{g:"\u265E",c:"#c77b76",n:"Enemy Knight",v:"3"},
+    "bP":{g:"\u265F",c:"#b08",v:"1",n:"Enemy Pawn"}
+  };
+  P["bP"].c="#b08a86";
+
+  // A mid-fight position (player White bottom). Basilisk = bishop-heavy enemy.
+  function start(){
+    var b=[];for(var r=0;r<8;r++)b.push(["","","","","","","",""]);
+    // enemy (black) top
+    b[0][3]="bK"; b[0][2]="bB"; b[0][5]="bB"; b[1][4]="bP"; b[1][3]="bP"; b[2][5]="bB";
+    // player (white) bottom
+    b[7][4]="wK"; b[7][2]="wR"; b[7][5]="wR"; b[6][3]="wP"; b[6][4]="wP"; b[5][2]="wB"; b[6][6]="wN"; b[7][6]="wQ";
+    return b;
+  }
+  var board=start();
+  var el=document.getElementById("board");
+
+  function render(opts){
+    opts=opts||{}; var html="";
+    for(var r=0;r<8;r++){
+      html+='<div style="display:flex;">';
+      for(var c=0;c<8;c++){
+        var bg=((r+c)%2===0)?light:dark;
+        if(opts.move&&opts.move[0]===r&&opts.move[1]===c) bg=moveHi;
+        if(opts.move&&opts.move[2]===r&&opts.move[3]===c) bg=opts.cap?capHi:moveHi;
+        var p=board[r][c], glyph="";
+        if(p){
+          var info=P[p], col=info.c;
+          if(opts.flash&&opts.flash[0]===r&&opts.flash[1]===c) col="#ffffff";
+          glyph='<span data-pc="'+p+'" style="color:'+col+';font-size:25px;transition:color .1s;">'+info.g+'</span>';
+        }
+        html+='<div data-r="'+r+'" data-c="'+c+'" style="width:'+CELL+'px;height:'+CELL+'px;background:'+bg+';display:flex;align-items:center;justify-content:center;transition:background .12s;">'+glyph+'</div>';
+      }
+      html+='</div>';
+    }
+    el.innerHTML=html; bindHover();
+  }
+  function bindHover(){
+    el.querySelectorAll("[data-pc]").forEach(function(s){
+      var cell=s.parentElement;
+      cell.addEventListener("mouseenter",function(){
+        var info=P[s.getAttribute("data-pc")];
+        document.getElementById("inspect").innerHTML=
+          '<span style="color:'+info.c+';font-size:14px;">'+info.g+'</span> '+
+          '<span style="color:#c3c8d2;">'+info.n+'</span>'+
+          '<span style="color:#4a4e58;"> · value '+info.v+'</span>';
+        cell.style.outline="1px solid "+info.c; cell.style.outlineOffset="-2px";
+      });
+      cell.addEventListener("mouseleave",function(){
+        cell.style.outline="none";
+        document.getElementById("inspect").innerHTML='<span style="color:#5a5f6b;">hover a piece</span>';
+      });
+    });
+  }
+
+  // INVENTORY 16 slots (5 filled)
+  var invPieces=["wN","wB","wP","wP","wR","","","","","","","","","","",""];
+  document.getElementById("inv").innerHTML=invPieces.map(function(p){
+    if(!p) return '<div class="slot" style="border:1px dashed #23262e;border-radius:3px;"></div>';
+    var info=P[p];
+    return '<div class="slot" data-pc="'+p+'" title="'+info.n+'" style="border:1px solid #262a34;border-radius:3px;display:flex;align-items:center;justify-content:center;background:#12151c;color:'+info.c+';font-size:20px;cursor:pointer;">'+info.g+'</div>';
+  }).join("");
+
+  // live payout tiers
+  document.getElementById("tiers").innerHTML=
+    '<span style="color:#5dcaa5;">≤10 → ◇5</span> · ≤20 → ◇4 · ≤30 → ◇3 · ≤45 → ◇2';
+
+  // move log
+  var log=[
+    {t:"basilisk · Bc5 develops",c:"#8b909c"},
+    {t:"you · Rd1 (rook to open file)",c:"#8b909c"},
+    {t:"basilisk · Bxf2+ check",c:"#c77b76"},
+    {t:"your move…",c:"#5dcaa5"}
+  ];
+  function drawLog(extra){
+    document.getElementById("log").innerHTML=(log.concat(extra||[])).map(function(l){
+      return '<div style="color:'+l.c+';">› '+l.t+'</div>';}).join("");
+  }
+  drawLog(); render();
+
+  // capture animation (cell-based: hop through squares, flash — honest to terminal)
+  var busy=false;
+  document.getElementById("play").addEventListener("click",function(){
+    if(busy)return; busy=true;
+    var path=[[5,2],[4,2],[4,3]]; var i=0;
+    (function step(){
+      board[path[i][0]][path[i][1]]=""; // clear prev
+      if(i>0) board[path[i-1][0]][path[i-1][1]]="";
+      board[path[i][0]][path[i][1]]="wB";
+      if(i>0){ board[path[i-1][0]][path[i-1][1]]=""; }
+      var cap=(i===path.length-1);
+      render({move:[5,2,path[i][0],path[i][1]],cap:cap, flash: cap?[path[i][0],path[i][1]]:null});
+      i++;
+      if(i<path.length) setTimeout(step,110);
+      else{
+        setTimeout(function(){
+          render({move:[5,2,4,3]});
+          document.getElementById("movecount").textContent="15";
+          document.getElementById("payout").innerHTML='→ ◇ 4 boons';
+          drawLog([{t:"you · Bxe5 captures pawn",c:"#e0b24c"}]);
+          busy=false;
+        },160);
+      }
+    })();
+  });
+
+  document.getElementById("flash").addEventListener("click",function(){
+    var seq=["#e2655f","#ffffff","#e2655f",""]; var bk=document.querySelector('#board [data-pc="wR"]');
+    if(!bk){busy=false;return;} var i=0;
+    (function tick(){ bk.style.color=seq[i]||"#cfd3db"; i++;
+      if(i<seq.length) setTimeout(tick,90);
+      else drawLog([{t:"basilisk · Bxc2 takes your rook — gone for good",c:"#e2655f"}]);
+    })();
+  });
+
+  document.getElementById("reset").addEventListener("click",function(){
+    board=start(); render(); drawLog();
+    document.getElementById("movecount").textContent="14";
+    document.getElementById("payout").innerHTML='→ ◇ 4 boons'; busy=false;
+  });
+})();
+</script>
+</body>
+</html>

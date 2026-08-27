@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chessvania"
+version = "0.1.0"
+description = "A terminal chess roguelike: pilot a persistent army up a ladder of Stockfish opponents."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "GPL-3.0-or-later" }
+dependencies = [
+    "chess>=1.11",
+    "textual>=0.80",
+    "platformdirs>=3.6",  # locating the save directory
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+chessvania = "chessvania.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["chessvania*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

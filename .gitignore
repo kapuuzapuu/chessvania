@@ -1,0 +1,21 @@
+# Virtual environments -- recreate with `python3 -m venv .venv`
+.venv/
+venv/
+
+# Python build and cache artefacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Save files, if anyone points CHESSVANIA_DATA_DIR at the working tree.
+# The real ones live in the platform user-data directory.
+saves/
+*.save
+
+# macOS
+.DS_Store
