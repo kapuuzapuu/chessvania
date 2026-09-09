@@ -12,9 +12,44 @@ from textual.widgets import Static
 from ...core.threat import Danger, Threat
 from .. import theme
 
-CELL_WIDTH = 3
 LEFT_MARGIN = 2
+RIGHT_MARGIN = 2
 HEADER_ROWS = 1
+
+CELL_LADDER = ((3, 1), (5, 2), (7, 3), (9, 4))
+"""(columns, rows) per square, smallest first.
+
+Terminal cells are roughly twice as tall as they are wide, so a square that
+*looks* square needs about two columns per row -- that ratio, not the terminal's
+own, is what keeps the board from reading as letterboxed. Widths are odd so a
+single glyph centres exactly.
+
+The first rung is the floor: 3x1 is what fits an 80x24 terminal, which is the
+smallest size the game supports.
+"""
+
+CELL_WIDTH = CELL_LADDER[0][0]
+"""Backwards-compatible alias for the floor cell width."""
+
+
+def board_size(cell_w: int, cell_h: int):
+    """(columns, rows) the widget needs to draw a board at this cell size."""
+    return (8 * cell_w + LEFT_MARGIN + RIGHT_MARGIN, 8 * cell_h + HEADER_ROWS)
+
+
+def choose_cell(available_w: int, available_h: int):
+    """The largest cell size that fits the space, never smaller than the floor.
+
+    Returns the floor rung even when it does not fit, because a cramped board is
+    a better failure than no board: below 80x24 the whole screen is compromised
+    anyway, and clamping here would only hide that.
+    """
+    best = CELL_LADDER[0]
+    for cell_w, cell_h in CELL_LADDER:
+        width, height = board_size(cell_w, cell_h)
+        if width <= available_w and height <= available_h:
+            best = (cell_w, cell_h)
+    return best
 
 
 class BoardView(Static):
@@ -42,6 +77,14 @@ class BoardView(Static):
         self.cursor_active = True
         self.threats: Dict[chess.Square, Threat] = {}
         self.flip = False
+        self.cell_w, self.cell_h = CELL_LADDER[0]
+
+    def set_cell(self, cell_w: int, cell_h: int) -> None:
+        """Resize the squares. The screen picks the size; the widget draws it."""
+        if (cell_w, cell_h) == (self.cell_w, self.cell_h):
+            return
+        self.cell_w, self.cell_h = cell_w, cell_h
+        self.redraw()
 
     # -- state -----------------------------------------------------------
 
@@ -100,6 +143,16 @@ class BoardView(Static):
     def redraw(self) -> None:
         self.update(self._render_board())
 
+    @property
+    def glyph_row(self) -> int:
+        """Which sub-row of a tall cell carries the piece.
+
+        Biased upward rather than centred so that an even-height cell puts its
+        padding *below* the glyph. Centring would leave a blank row between the
+        file header and rank 8, which reads as the board having slipped down.
+        """
+        return (self.cell_h - 1) // 2
+
     def _render_board(self) -> Text:
         text = Text()
         files = "abcdefgh"
@@ -107,19 +160,23 @@ class BoardView(Static):
 
         text.append(" " * LEFT_MARGIN)
         for f in files:
-            text.append(" %s " % f, style=theme.GHOST)
+            text.append(f.center(self.cell_w), style=theme.GHOST)
         text.append("\n")
 
         for rank in ranks:
-            text.append("%d " % (rank + 1), style=theme.GHOST)
-            for file in range(8):
-                text.append_text(self._cell(chess.square(file, rank)))
-            text.append(" %d" % (rank + 1), style=theme.GHOST)
-            text.append("\n")
+            for sub_row in range(self.cell_h):
+                labelled = sub_row == self.glyph_row
+                label = "%d " % (rank + 1) if labelled else "  "
+                text.append(label, style=theme.GHOST)
+                for file in range(8):
+                    text.append_text(self._cell(chess.square(file, rank), sub_row))
+                text.append(" %d" % (rank + 1) if labelled else "  ",
+                            style=theme.GHOST)
+                text.append("\n")
 
         return text
 
-    def _cell(self, square: chess.Square) -> Text:
+    def _cell(self, square: chess.Square, sub_row: int = 0) -> Text:
         file = chess.square_file(square)
         rank = chess.square_rank(square)
         piece = self.board.piece_at(square)
@@ -168,36 +225,52 @@ class BoardView(Static):
             foreground = "#ffffff"
 
         cell = Text()
+        if sub_row != self.glyph_row:
+            # A tall cell is one square: only the middle row carries anything,
+            # the rest is the square's colour.
+            cell.append(" " * self.cell_w, style="on %s" % background)
+            return cell
+
+        # Build the row as characters so every cell width is laid out the same
+        # way: glyph in the middle, decoration on the edges.
+        chars = [" "] * self.cell_w
+        styles = ["on %s" % background] * self.cell_w
+        middle = self.cell_w // 2
+        chars[middle] = glyph
+        styles[middle] = "%s on %s" % (foreground, background)
+
         if square == self.cursor:
-            # A 3-wide cell has no room for a drawn border, so the cursor
-            # brackets the square instead -- same read, no extra rows. The
-            # threat marker yields to it; the inspect panel spells out the
-            # square under the cursor in full anyway.
+            # The cursor brackets the square rather than boxing it: even at the
+            # widest cell there is no row to spare for a drawn border without
+            # the board losing a rung. The threat marker yields to it; the
+            # inspect panel spells the square out in full anyway.
             edge = theme.GREEN if self.cursor_active else theme.FAINT
-            cell.append("[", style="%s on %s" % (edge, background))
-            cell.append(glyph, style="%s on %s" % (foreground, background))
-            cell.append("]", style="%s on %s" % (edge, background))
+            chars[0], chars[-1] = "[", "]"
+            styles[0] = styles[-1] = "%s on %s" % (edge, background)
         elif marker is not None:
-            cell.append(" ", style="on %s" % background)
-            cell.append(glyph, style="%s on %s" % (foreground, background))
-            cell.append(
-                marker,
-                style="%s on %s" % (theme.threat_color(threat.level), background),
-            )
-        else:
-            cell.append(" %s " % glyph, style="%s on %s" % (foreground, background))
+            chars[-1] = marker
+            styles[-1] = "%s on %s" % (theme.threat_color(threat.level), background)
+
+        for char, style in zip(chars, styles):
+            cell.append(char, style=style)
         return cell
 
     # -- mouse -----------------------------------------------------------
 
     def _square_at(self, x: int, y: int) -> Optional[chess.Square]:
         row = y - HEADER_ROWS
-        if not 0 <= row <= 7:
+        if row < 0:
             return None
-        file = (x - LEFT_MARGIN) // CELL_WIDTH
+        rank_index = row // self.cell_h
+        if not 0 <= rank_index <= 7:
+            return None
+        column = x - LEFT_MARGIN
+        if column < 0:
+            return None
+        file = column // self.cell_w
         if not 0 <= file <= 7:
             return None
-        rank = row if self.flip else 7 - row
+        rank = rank_index if self.flip else 7 - rank_index
         return chess.square(file, rank)
 
     def on_click(self, event) -> None:

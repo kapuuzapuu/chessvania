@@ -28,6 +28,7 @@ from ...core.economy import sell_value
 from ...core.postfight import PostFight, Slot, Step, catalogue
 from ...core.run import RunState
 from .. import theme
+from ..layout import scale_board
 from ..widgets.bench import COLUMNS as BENCH_COLUMNS
 from ..widgets.bench import BenchView
 from ..widgets.board_view import BoardView
@@ -105,6 +106,7 @@ class PostFightScreen(Screen):
         for button in self.query("#controls Button"):
             button.can_focus = False
         self.board_cursor = self.run.army.king_square() or chess.E1
+        scale_board(self)
         self.refresh_all()
 
     # -- rendering -------------------------------------------------------
@@ -183,7 +185,11 @@ class PostFightScreen(Screen):
         still zero on the first layout pass -- so without this the panel keeps
         the too-tall height it measured before it knew how wide it was, and
         pushes the buttons off the bottom of the screen.
+
+        It is also where the board picks its square size, for the same reason:
+        the budget depends on the terminal, not on the first layout pass.
         """
+        scale_board(self)
         self.refresh_all()
 
     def _hint(self) -> Text:

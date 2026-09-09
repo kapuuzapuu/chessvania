@@ -41,7 +41,19 @@ STOCKFISH_PATH=/opt/homebrew/bin/stockfish ./.venv/bin/python -m chessvania
 
 If it can't find one, it exits with install instructions rather than a stack trace.
 
-Terminal should be at least **80×24**.
+Terminal should be at least **80×24**. That is the floor, not the target — the
+board picks the largest squares that fit and redraws as you resize the window:
+
+| terminal | square | board |
+|---|---|---|
+| 80×24 | 3×1 | 28×9 |
+| 88×26 | 5×2 | 44×17 |
+| 104×32 | 7×3 | 60×25 |
+| 120×38 | 9×4 | 76×33 |
+
+Squares are about two columns per row because terminal cells are roughly twice
+as tall as they are wide — that ratio, not the terminal's, is what stops the
+board reading as letterboxed.
 
 ## The menu
 
@@ -251,6 +263,7 @@ chessvania/
 │   └── run_store.py    run.json, including piece identity
 ├── data/               enemy formations and loadouts, as FENs
 └── ui/                 Textual screens and widgets
+    └── layout.py       board sizing: how much room it gets, what squares fit
 ```
 
 `core/` never imports Textual or Stockfish. Every rule — the inventory cap, the
@@ -312,16 +325,13 @@ tuned once the game has been played properly.
 
 ## Future features
 
-One item from the post-build change list is still outstanding, and it is blocked
-on a decision rather than on code.
+**Piece art for the larger squares.** At 7×3 a square holds a single centred
+glyph with a lot of room around it. Block-character pieces in the style of
+chess-tui would fill that space properly. The board already scales; only the
+glyphs are still one character.
 
-**Cell borders, larger pieces, and a responsive top bar.** The board would read
-far better drawn at chess-tui scale, with ruled cells and pieces that aren't a
-single character. This is blocked on one question: **can the recommended terminal
-size go above 80×24?** Pieces at that scale need roughly 56×24 for the board
-alone. Everything currently fits 80×24 exactly — the three columns are 17+28+33 —
-and `tests/test_ui.py` pins that with a regression test. It is a budget decision,
-not a coding one.
+**A responsive top bar.** The counters still truncate earlier than they need to
+when the window narrows. Independent of everything above.
 
 ## Licence
 

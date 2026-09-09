@@ -25,6 +25,7 @@ from ...core.fight import Fight, Outcome
 from ...core.run import RunState
 from ...core.threat import Danger, ThreatReport, cover, read as read_threats
 from .. import theme
+from ..layout import scale_board
 from ..widgets.bench import COLUMNS as BENCH_COLUMNS
 from ..widgets.bench import BenchView
 from ..widgets.board_view import BoardView
@@ -112,6 +113,12 @@ class FightScreen(Screen):
 
     def on_mount(self) -> None:
         self.query_one("#devbar", DevBar).display = config.DEV_MODE
+        scale_board(self)
+        self.refresh_all()
+
+    def on_resize(self, event=None) -> None:
+        """Grow or shrink the squares to match the new terminal size."""
+        scale_board(self)
         self.refresh_all()
 
     # -- rendering -------------------------------------------------------
