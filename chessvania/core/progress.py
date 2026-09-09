@@ -43,6 +43,32 @@ BY_ID: Dict[str, Achievement] = {a.id: a for a in ACHIEVEMENTS}
 
 
 @dataclass
+class Settings:
+    """Player preferences. Cosmetic only -- nothing here touches the rules.
+
+    These live on the profile rather than in a run because they are properties
+    of the person playing, not of the life being played. Changing one mid-run is
+    therefore fine and deliberately does not invalidate a save.
+    """
+
+    filled_player_pieces: bool = False
+    """Draw YOUR army with the solid glyphs and the enemy with the outlined ones.
+
+    Off by default because that is the printed-diagram convention: White is
+    outlined, Black is solid, and most people read the board faster that way.
+    It is a swap, never a one-sided change -- both armies always use opposite
+    fills, so which side a piece belongs to survives with all colour stripped
+    out. See `theme.piece_glyph`.
+    """
+
+    boot_animation: bool = True
+    """Play the title sequence on the way to the main menu.
+
+    Any key already skips it; this is for people who never want to see it
+    again."""
+
+
+@dataclass
 class Profile:
     """Everything that survives a run ending."""
 
@@ -57,6 +83,9 @@ class Profile:
     highest_stake: int = 1
     shop_skips_this_run: int = 0
     """Reset when a run starts; the Miser achievement reads it."""
+
+    settings: "Settings" = field(default_factory=Settings)
+    """Cosmetic preferences. Saved alongside progression, never part of a run."""
 
     # -- queries ---------------------------------------------------------
 

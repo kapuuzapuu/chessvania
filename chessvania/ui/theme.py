@@ -3,9 +3,14 @@
 Colours are specified as truecolor hex; Textual downgrades to 256/16/mono on
 weaker terminals automatically, so there is only one version to author.
 
-Colour never carries meaning alone. Sides are distinguishable by glyph -- White
-uses the outline chess symbols and Black the solid ones -- so the board stays
-readable with every colour stripped out.
+Colour never carries meaning alone. Sides are distinguishable by glyph shape --
+one army draws with the outlined chess symbols and the other with the solid
+ones -- so the board stays readable with every colour stripped out.
+
+WHICH army gets which fill is a setting (`Settings.filled_player_pieces`), but
+that the two always differ is not. `piece_glyph` is the only place glyphs come
+from, so the invariant holds everywhere by construction rather than by everyone
+remembering it.
 """
 
 from __future__ import annotations
@@ -119,3 +124,42 @@ def gold(amount: int) -> str:
     from .. import config
 
     return "%s %d" % (config.GOLD_GLYPH, amount)
+
+
+# --------------------------------------------------------------------------
+# Piece glyphs
+# --------------------------------------------------------------------------
+#
+# Deliberately module-level state. The fill is a display mode that applies
+# uniformly to every glyph the app draws -- board, bench, shop, loadout,
+# bestiary, game over -- so threading a boolean through ten render call sites
+# would buy nothing over setting it once. `ChessvaniaApp.apply_settings` is the
+# only caller of `set_piece_fill`; tests reset it via an autouse fixture.
+
+_PLAYER_FILLED = False
+
+
+def set_piece_fill(player_filled: bool) -> None:
+    """Choose which army draws with the solid glyphs."""
+    global _PLAYER_FILLED
+    _PLAYER_FILLED = player_filled
+
+
+def player_filled() -> bool:
+    return _PLAYER_FILLED
+
+
+def piece_glyph(piece_type: int, color: bool = chess.WHITE) -> str:
+    """The glyph for a piece, honouring the fill preference.
+
+    python-chess's `invert_color` swaps a piece's glyph for its opposite number,
+    so applying it to BOTH sides exchanges the two armies' fills rather than
+    making them match. That is what keeps the sides distinguishable without
+    colour whichever way the setting is pointed.
+    """
+    return chess.Piece(piece_type, color).unicode_symbol(invert_color=_PLAYER_FILLED)
+
+
+def piece_glyph_for(piece: Piece) -> str:
+    """Glyph for one of the player's own pieces."""
+    return piece_glyph(piece.piece_type, chess.WHITE)

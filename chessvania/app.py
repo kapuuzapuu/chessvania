@@ -35,6 +35,7 @@ from .ui.screens.fight import FightScreen
 from .ui.screens.gameover import GameOverScreen
 from .ui.screens.menu import MenuScreen
 from .ui.screens.postfight import PostFightScreen
+from .ui.screens.settings import SettingsScreen
 
 
 class ChessvaniaApp(App):
@@ -244,7 +245,24 @@ class ChessvaniaApp(App):
     def on_mount(self) -> None:
         self.profile = load_profile()
         self.run_number = self.profile.runs_played + 1
+        self.apply_settings()
         self.push_screen(MenuScreen(self.profile))
+
+    # -- settings --------------------------------------------------------
+
+    def apply_settings(self) -> None:
+        """Push profile preferences into the presentation layer.
+
+        Called once at startup and again on every change, so a toggle takes
+        effect on the screen you toggled it from rather than at the next launch.
+        """
+        from .ui import theme
+
+        theme.set_piece_fill(self.profile.settings.filled_player_pieces)
+
+    def save_settings(self) -> bool:
+        """Persist immediately -- the settings screen has no confirm step."""
+        return save_profile(self.profile)
 
     # -- menu ------------------------------------------------------------
 
@@ -262,6 +280,8 @@ class ChessvaniaApp(App):
             self.switch_screen(BestiaryScreen(self.profile))
         elif choice == "achievements":
             self.switch_screen(AchievementsScreen(self.profile))
+        elif choice == "settings":
+            self.switch_screen(SettingsScreen(self.profile))
         elif choice == "quit":
             self.exit()
 

@@ -62,7 +62,8 @@ class GameOverScreen(Screen):
         if veterans:
             text.append("\nveterans\n", style=theme.DIM)
             for piece in sorted(veterans, key=lambda p: -p.fights_survived)[:6]:
-                text.append("  %s %-7s " % (piece.symbol, piece.name.lower()),
+                text.append("  %s %-7s " % (theme.piece_glyph_for(piece),
+                                            piece.name.lower()),
                             style=theme.player_color(piece))
                 text.append("%d fights\n" % piece.fights_survived, style=theme.FAINT)
 

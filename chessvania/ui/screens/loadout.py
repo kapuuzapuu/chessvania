@@ -58,7 +58,8 @@ class LoadoutScreen(Screen):
         counts = {}
         for piece in army.deployment.values():
             if piece.piece_type != chess.KING:
-                counts[piece.symbol] = counts.get(piece.symbol, 0) + 1
+                glyph = theme.piece_glyph_for(piece)
+                counts[glyph] = counts.get(glyph, 0) + 1
 
         text = Text()
         text.append("%s\n" % loadout.name.upper(), style="%s bold" % theme.TEXT)

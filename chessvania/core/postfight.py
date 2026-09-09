@@ -65,10 +65,6 @@ class StockItem:
 
         return PIECE_NAMES[self.piece_type]
 
-    @property
-    def symbol(self) -> str:
-        return chess.Piece(self.piece_type, chess.WHITE).unicode_symbol()
-
 
 def catalogue() -> List[StockItem]:
     """The shop's permanent stock: every piece type, cheapest first.
@@ -142,11 +138,15 @@ class PostFight:
         self.gold_spent += item.price
         return True, ""
 
-    def purchase_counts(self) -> "OrderedDict[str, int]":
-        """Bought pieces grouped for the receipt, so 3 pawns is not '♙ ♙ ♙'."""
-        counts: "OrderedDict[str, int]" = OrderedDict()
+    def purchase_counts(self) -> "OrderedDict[int, int]":
+        """Bought pieces grouped for the receipt, so 3 pawns is not '3 pawns'.
+
+        Keyed by piece type, not by glyph: which symbol a piece draws with is a
+        display preference the UI owns, and core has no business deciding it.
+        """
+        counts: "OrderedDict[int, int]" = OrderedDict()
         for piece in self.bought:
-            counts[piece.symbol] = counts.get(piece.symbol, 0) + 1
+            counts[piece.piece_type] = counts.get(piece.piece_type, 0) + 1
         return counts
 
     @property

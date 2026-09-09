@@ -149,7 +149,7 @@ class BoardView(Static):
             glyph = "·" if is_target else " "
             foreground = theme.GREEN if is_target else theme.FAINT
         else:
-            glyph = piece.unicode_symbol()
+            glyph = theme.piece_glyph(piece.piece_type, piece.color)
             if piece.color == chess.WHITE:
                 foreground = theme.player_color_for(
                     self.veterancy.get(square, 0), piece.piece_type

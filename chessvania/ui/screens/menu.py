@@ -58,7 +58,9 @@ class MenuScreen(Screen):
         self.profile = profile
         self.index = 0
         self.frame = 0
-        self.animating = animate
+        # The caller asks for an animation; the profile decides whether it gets
+        # one. Keeping the veto here means no future caller can forget it.
+        self.animating = animate and profile.settings.boot_animation
         self._timer = None
 
     # -- layout ----------------------------------------------------------
@@ -96,6 +98,7 @@ class MenuScreen(Screen):
             MenuItem("bestiary", "bestiary", "armies and enemies you have met"),
             MenuItem("achievements", "achievements",
                      "%s earned" % self.profile.completion),
+            MenuItem("settings", "settings", "pieces and presentation"),
             MenuItem("quit", "quit", "leave"),
         ]
 

@@ -70,10 +70,6 @@ class Piece:
         return PIECE_VALUES[self.piece_type]
 
     @property
-    def symbol(self) -> str:
-        return chess.Piece(self.piece_type, chess.WHITE).unicode_symbol()
-
-    @property
     def veterancy(self) -> int:
         """0 = fresh, 1 = seasoned, 2 = veteran.
 

@@ -99,7 +99,7 @@ def test_the_menu_lists_every_entry():
         async with app.run_test() as pilot:
             menu = await settled_menu(pilot, app)
             assert [i.id for i in menu.items] == [
-                "new", "load", "bestiary", "achievements", "quit"
+                "new", "load", "bestiary", "achievements", "settings", "quit"
             ]
 
     drive(scenario)

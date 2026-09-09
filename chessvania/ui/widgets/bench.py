@@ -77,7 +77,7 @@ class BenchView(Static):
         if piece is None:
             body, color = "·", theme.GHOST
         else:
-            body, color = piece.symbol, theme.player_color(piece)
+            body, color = theme.piece_glyph_for(piece), theme.player_color(piece)
 
         if index == self.selected:
             bracket = theme.GOLD

@@ -271,7 +271,7 @@ class PostFightScreen(Screen):
         if self.phase.casualties:
             lost = Text("  lost  ", style=theme.DIM)
             for piece in self.phase.casualties:
-                lost.append("%s " % piece.symbol, style=theme.RED)
+                lost.append("%s " % theme.piece_glyph_for(piece), style=theme.RED)
             lost.append("\n")
             text.append_text(lost)
         else:
@@ -297,9 +297,10 @@ class PostFightScreen(Screen):
                             style=theme.GREEN)
             elif self.phase.bought:
                 bought = Text("  bought ", style=theme.DIM)
-                for symbol, count in self.phase.purchase_counts().items():
+                for piece_type, count in self.phase.purchase_counts().items():
                     bought.append("%s%s " % (
-                        symbol, "×%d" % count if count > 1 else ""),
+                        theme.piece_glyph(piece_type),
+                        "×%d" % count if count > 1 else ""),
                         style=theme.SEASONED)
                 bought.append("\n")
                 text.append_text(bought)
@@ -371,7 +372,8 @@ class PostFightScreen(Screen):
                 item = self.phase.stock[index]
                 ok, reason = self.phase.can_buy(index)
                 button.label = "%s %s  %s%d" % (
-                    item.symbol, item.name.lower(), config.GOLD_GLYPH, item.price
+                    theme.piece_glyph(item.piece_type), item.name.lower(),
+                    config.GOLD_GLYPH, item.price
                 )
                 button.disabled = not ok
 
@@ -616,7 +618,7 @@ class PostFightScreen(Screen):
         piece = inventory[event.index]
         self._say(
             "%s %s · %s · sells for %s%d"
-            % (piece.symbol, piece.name.lower(), piece.veterancy_label,
+            % (theme.piece_glyph_for(piece), piece.name.lower(), piece.veterancy_label,
                config.GOLD_GLYPH, sell_value(piece.piece_type)),
             theme.FAINT,
         )

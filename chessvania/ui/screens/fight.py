@@ -269,7 +269,7 @@ class FightScreen(Screen):
     def _mark(self, square: chess.Square) -> str:
         """A piece and where it stands, as one token: `♞g5`."""
         piece = self.fight.board.piece_at(square)
-        glyph = piece.unicode_symbol() if piece is not None else ""
+        glyph = theme.piece_glyph(piece.piece_type, piece.color) if piece else ""
         return "%s%s" % (glyph, chess.square_name(square))
 
     def _row(self, left: Text, right: Optional[Text] = None) -> Text:
@@ -373,7 +373,7 @@ class FightScreen(Screen):
         text = Text()
         text.append("promote to  ", style=theme.GOLD)
         for index, move in enumerate(self.promotion_moves):
-            glyph = chess.Piece(move.promotion, chess.WHITE).unicode_symbol()
+            glyph = theme.piece_glyph(move.promotion)
             chosen = index == self.promotion_index
             text.append(
                 "[%s]" % glyph if chosen else " %s " % glyph,
@@ -408,7 +408,8 @@ class FightScreen(Screen):
             pid = self.fight.tracker.at.get(square)
             owned = self._by_id.get(pid) if pid is not None else None
             color = theme.player_color(owned) if owned else theme.FRESH
-            text.append("%s " % piece.unicode_symbol(), style=color)
+            text.append("%s " % theme.piece_glyph(piece.piece_type, piece.color),
+                        style=color)
             text.append(PIECE_NAMES[piece.piece_type], style=theme.TEXT)
             text.append(" · yours · value %d" % PIECE_VALUES[piece.piece_type],
                         style=theme.FAINT)
@@ -418,7 +419,7 @@ class FightScreen(Screen):
                             style=color if owned.veterancy else theme.FAINT)
             detail = self._own_piece_detail(square)
         else:
-            text.append("%s " % piece.unicode_symbol(),
+            text.append("%s " % theme.piece_glyph(piece.piece_type, piece.color),
                         style=theme.enemy_color(piece.piece_type))
             text.append("Enemy %s" % PIECE_NAMES[piece.piece_type], style=theme.TEXT)
             text.append(" · value %d" % PIECE_VALUES[piece.piece_type], style=theme.FAINT)
@@ -494,7 +495,7 @@ class FightScreen(Screen):
             return Text("empty bench slot", style=theme.GHOST)
         piece = inventory[self.bench_cursor]
         text = Text()
-        text.append("%s " % piece.symbol, style=theme.player_color(piece))
+        text.append("%s " % theme.piece_glyph_for(piece), style=theme.player_color(piece))
         text.append(piece.name, style=theme.TEXT)
         text.append(" · benched · value %d" % piece.value, style=theme.FAINT)
         text.append("\n%s · %d fights survived"

@@ -54,7 +54,25 @@ walks on, the menu appears. **Any key skips it.**
 | **load game** | resume a run in progress (greyed out if there isn't one) |
 | **bestiary** | armies you can field and enemies you've beaten |
 | **achievements** | 10 to earn, one of them secret |
+| **settings** | piece style and the boot animation |
 | **quit** | |
+
+## Settings
+
+Two cosmetic toggles, saved the moment you change them. Neither touches the
+rules, which is exactly why they can live in a menu — unlike `DEV_MODE`, which
+is hidden in `config.py` on purpose.
+
+**Piece style.** By default your army draws with the outlined symbols (♙♘♗♖♕♔)
+and the enemy with the solid ones (♟♞♝♜♛♚), which is the printed-diagram
+convention. Flip it and the two swap. It is always a *swap*, never a one-sided
+change: the two armies never share a fill, so which side a piece belongs to
+survives with every colour stripped out. The screen previews both armies as you
+toggle, because the setting is a visual one and describing it in words is no
+substitute for seeing it.
+
+**Boot animation.** Any key already skips the title sequence; this turns it off
+for good.
 
 ## Saving
 
@@ -62,7 +80,9 @@ Two files, with two different lifetimes, in your platform's user-data directory
 (`~/Library/Application Support/chessvania` on macOS). Override with
 `CHESSVANIA_DATA_DIR`.
 
-- **`profile.json`** — achievements, the bestiary and unlocks. Survives everything.
+- **`profile.json`** — achievements, the bestiary, unlocks and settings.
+  Survives everything. A profile written before settings existed still loads;
+  it just gets the defaults.
 - **`run.json`** — the run in progress. Written at the top of every fight, so
   resuming always puts you at the start of a fight rather than halfway through
   one. **Deleted when the run ends** — one life means a lost run is gone.
@@ -292,8 +312,8 @@ tuned once the game has been played properly.
 
 ## Future features
 
-Four items from the post-build change list are still outstanding. None are hard;
-three of them are blocked on a decision rather than on code.
+One item from the post-build change list is still outstanding, and it is blocked
+on a decision rather than on code.
 
 **Cell borders, larger pieces, and a responsive top bar.** The board would read
 far better drawn at chess-tui scale, with ruled cells and pieces that aren't a
@@ -302,18 +322,6 @@ size go above 80×24?** Pieces at that scale need roughly 56×24 for the board
 alone. Everything currently fits 80×24 exactly — the three columns are 17+28+33 —
 and `tests/test_ui.py` pins that with a regression test. It is a budget decision,
 not a coding one.
-
-**Filled glyphs for the player's pieces, togglable.** Mechanically trivial —
-`chess.Piece.unicode_symbol(invert_color=True)` — but the toggle has nowhere to
-live.
-
-**A way to permanently disable the boot animation.** Same problem: nowhere to put
-the switch.
-
-The last two resolve together. The menu is new game / load / bestiary /
-achievements / quit, with no settings entry, so either a settings screen gets
-added to it, or both become plain constants in [config.py](chessvania/config.py)
-in the style of `DEV_MODE`. That choice is still open.
 
 ## Licence
 
