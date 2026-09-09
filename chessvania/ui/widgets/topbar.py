@@ -12,6 +12,25 @@ from ...core.run import RunState
 from .. import theme
 
 
+COUNTER_TIERS = ((False, 3), (False, 1), (True, 1))
+"""(short labels?, gutter width), roomiest first.
+
+The bar walks down this list until the enemy's name fits whole. Full words with
+generous gutters when there is space; single letters packed tight when there is
+not. The counters themselves are never cut -- losing half of "GOLD" tells you
+less than nothing.
+"""
+
+SUBTITLE_GAP = 3
+"""Columns between the game title and the enemy's name."""
+
+MIN_PAD = 1
+"""Columns kept between the name and the counters so they never touch.
+
+Reserved when working out how much room the name has, not added afterwards --
+adding it afterwards is what made the bar one column too wide at some widths."""
+
+
 class TopBar(Static):
     """Left: game + current enemy. Right: RUN / ANTE / FIGHT / ELO / GOLD.
 
@@ -60,6 +79,55 @@ class TopBar(Static):
         """Re-lay out once the real width is known (and whenever it changes)."""
         self._paint()
 
+    def _counter_groups(self, run: RunState, short: bool) -> list:
+        """The five counters, each as its own Text so they can be spaced apart.
+
+        `short` swaps the words for single letters. Gold drops its label
+        entirely -- the coin glyph already says what the number is.
+        """
+        groups = []
+
+        group = Text()
+        group.append("R" if short else "RUN ", style=theme.DIM)
+        group.append("%02d" % run.run_number, style=theme.TEXT)
+        groups.append(group)
+
+        group = Text()
+        group.append("A" if short else "ANTE ", style=theme.DIM)
+        group.append("%d" % run.ante, style=theme.TEXT)
+        group.append("/%d" % config.ANTES, style=theme.GHOST)
+        groups.append(group)
+
+        group = Text()
+        group.append("F" if short else "FIGHT ", style=theme.DIM)
+        group.append("%d" % run.fight_in_ante, style=theme.TEXT)
+        group.append("/%d" % config.FIGHTS_PER_ANTE, style=theme.GHOST)
+        groups.append(group)
+
+        group = Text()
+        group.append("E" if short else "ELO ", style=theme.DIM)
+        group.append("%d" % run.elo, style=theme.RED)
+        groups.append(group)
+
+        group = Text()
+        if not short:
+            group.append("GOLD ", style=theme.DIM)
+        group.append(
+            "%s%s%d" % (config.GOLD_GLYPH, "" if short else " ", self._displayed_gold),
+            style=theme.GOLD,
+        )
+        groups.append(group)
+
+        return groups
+
+    def _counters(self, run: RunState, short: bool, gutter: int) -> Text:
+        text = Text()
+        for index, group in enumerate(self._counter_groups(run, short)):
+            if index:
+                text.append(" " * gutter)
+            text.append_text(group)
+        return text
+
     def _paint(self) -> None:
         """Named to avoid shadowing Textual's internal Widget._render()."""
         run = getattr(self, "_run", None)
@@ -67,39 +135,38 @@ class TopBar(Static):
             return
         subtitle = getattr(self, "_subtitle", None) or ""
 
-        line = Text()
-        line.append("%s CHESSVANIA" % config.GOLD_GLYPH, style="%s bold" % theme.GOLD)
-
-        right = Text()
-        right.append("RUN ", style=theme.DIM)
-        right.append("%02d" % run.run_number, style=theme.TEXT)
-        right.append("   ANTE ", style=theme.DIM)
-        right.append("%d" % run.ante, style=theme.TEXT)
-        right.append("/%d" % config.ANTES, style=theme.GHOST)
-        right.append("   FIGHT ", style=theme.DIM)
-        right.append("%d" % run.fight_in_ante, style=theme.TEXT)
-        right.append("/%d" % config.FIGHTS_PER_ANTE, style=theme.GHOST)
-        right.append("   ELO ", style=theme.DIM)
-        right.append("%d" % run.elo, style=theme.RED)
-        right.append("   GOLD ", style=theme.DIM)
-        right.append(
-            "%s %d" % (config.GOLD_GLYPH, self._displayed_gold), style=theme.GOLD
-        )
+        title = Text()
+        title.append("%s CHESSVANIA" % config.GOLD_GLYPH, style="%s bold" % theme.GOLD)
 
         # content_size excludes padding; using self.size here overruns and the
         # gold counter gets clipped off the right edge.
         width = self.content_size.width or self.size.width
 
-        # The counters are load-bearing and the enemy's name is flavour, so when
-        # the bar is too narrow it is the name that gives way, not the gold.
-        room = width - line.cell_len - right.cell_len - 4
+        # Step down through the tiers and take the first that leaves the enemy's
+        # name room to be written out in full. The counters are load-bearing, so
+        # they are never truncated -- but they are allowed to get terser, which
+        # is what stops the name from being the only thing that ever gives way.
+        # If even the tightest tier cannot fit the name, the name still yields.
+        right = None
+        room = 0
+        for short, gutter in COUNTER_TIERS:
+            right = self._counters(run, short, gutter)
+            room = (width - title.cell_len - right.cell_len
+                    - SUBTITLE_GAP - MIN_PAD)
+            if not subtitle or room >= len(subtitle):
+                break
+
+        line = Text()
+        line.append_text(title)
         if subtitle and room > 1:
             if len(subtitle) > room:
                 subtitle = subtitle[: room - 1] + "…"
-            line.append("   ")
+            line.append(" " * SUBTITLE_GAP)
             line.append(subtitle, style=theme.DIM)
 
-        pad = max(1, width - line.cell_len - right.cell_len)
+        # Never negative: at a width where even the tightest tier does not
+        # fit, the counters run on and the terminal clips them.
+        pad = max(0, width - line.cell_len - right.cell_len)
         line.append(" " * pad)
         line.append_text(right)
         self.update(line)

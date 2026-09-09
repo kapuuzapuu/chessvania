@@ -55,6 +55,12 @@ Squares are about two columns per row because terminal cells are roughly twice
 as tall as they are wide — that ratio, not the terminal's, is what stops the
 board reading as letterboxed.
 
+The top bar degrades in tiers as the window narrows: full words and roomy
+gutters when there is space, then tighter gutters, then single-letter labels
+(`R01 A1/3 F1/3 E700 ◇10`). The counters are never truncated — half of
+"GOLD" tells you less than nothing — so the enemy's name is what finally gives
+way, and only once every tier has been tried.
+
 ## The menu
 
 The game opens on a short boot sequence — the banner draws in, a rank of pieces
@@ -325,13 +331,10 @@ tuned once the game has been played properly.
 
 ## Future features
 
-**Piece art for the larger squares.** At 7×3 a square holds a single centred
+**Piece art for the larger squares.** At 7x3 a square holds a single centred
 glyph with a lot of room around it. Block-character pieces in the style of
 chess-tui would fill that space properly. The board already scales; only the
 glyphs are still one character.
-
-**A responsive top bar.** The counters still truncate earlier than they need to
-when the window narrows. Independent of everything above.
 
 ## Licence
 
