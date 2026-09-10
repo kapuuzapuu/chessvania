@@ -10,7 +10,7 @@ from textual.message import Message
 from textual.widgets import Static
 
 from ...core.threat import Danger, Threat
-from .. import theme
+from .. import piece_art, theme
 
 LEFT_MARGIN = 2
 RIGHT_MARGIN = 2
@@ -223,6 +223,28 @@ class BoardView(Static):
 
         if square == self.flash_square:
             foreground = "#ffffff"
+
+        sprite = None
+        if piece is not None:
+            sprite = piece_art.art_for(self.cell_w, self.cell_h, piece.piece_type)
+
+        if piece_art.has_art(self.cell_w, self.cell_h) and square == self.cursor:
+            # Sits above the move-composing tints rather than under them: at
+            # these sizes it is the only thing marking the cursor at all.
+            if self.cursor_active and square != self.flash_square:
+                background = theme.SQ_CURSOR
+
+        if sprite is not None:
+            chars = list(sprite[sub_row])
+            styles = ["%s on %s" % (foreground, background)] * self.cell_w
+            if marker is not None and sub_row == 0:
+                chars[-1] = marker
+                styles[-1] = "%s on %s" % (
+                    theme.threat_color(threat.level), background)
+            cell = Text()
+            for char, style in zip(chars, styles):
+                cell.append(char, style=style)
+            return cell
 
         cell = Text()
         if sub_row != self.glyph_row:

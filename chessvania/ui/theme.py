@@ -35,6 +35,12 @@ SQ_MOVE = "#3a3320"
 SQ_CAPTURE = "#4a2420"
 SQ_SELECT = "#2b3a34"
 SQ_TARGET = "#22322c"
+SQ_CURSOR = "#3d4a63"
+"""Cursor tint, used only at the sizes that draw block art.
+
+The 3x1 square brackets its cursor because there is no room for anything
+else; an art square is filled edge to edge, so a bracket would have to be
+painted over the piece itself. Tinting the square is the honest option."""
 SQ_CHECK = "#5c1d20"
 """Deeper and redder than SQ_CAPTURE, which marks a capture you are considering.
 This one marks a fact about the position."""
