@@ -236,11 +236,12 @@ def test_the_postfight_board_scales_too():
 
 
 def test_the_destination_marker_sits_at_the_cell_centre():
-    """An even-height cell has no middle row, so the mark straddles two.
+    """The mark is one row tall at every size, and as near centre as it can be.
 
-    Drawn on either inner row alone it reads visibly high or low -- a twelfth
-    of the cell out at 9x4. `▄` on the upper row and `▀` on the lower ink the
-    two pixels either side of the boundary, which is the exact centre.
+    An even-height cell has no middle row. A plain dot on the upper inner row
+    floats a twelfth of the cell high; the half block `▄` hugs the boundary
+    instead and is half a pixel out. Straddling two rows would be exact but
+    reads as a block rather than a dot.
     """
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
@@ -258,14 +259,12 @@ def test_the_destination_marker_sits_at_the_cell_centre():
                 inked = [i for i, row in enumerate(rows)
                          if any(m in row for m in ("·", "▄", "▀"))]
                 assert inked, "cell %dx%d drew no marker" % (cell_w, cell_h)
-                if cell_h % 2:
-                    assert len(inked) == 1, (
-                        "odd-height %dx%d should use one centred dot, got %s"
-                        % (cell_w, cell_h, inked))
-                else:
-                    assert len(inked) == 2 and inked[1] == inked[0] + 1, (
-                        "even-height %dx%d must straddle two rows, got %s"
-                        % (cell_w, cell_h, inked))
+                assert len(inked) == 1, (
+                    "cell %dx%d marker should be one row tall, got %s"
+                    % (cell_w, cell_h, inked))
+                # strip the file header, then ask where it falls inside its cell
+                assert (inked[0] - 1) % cell_h == view.glyph_row, (
+                    "cell %dx%d marker is not on the middle row" % (cell_w, cell_h))
 
     drive(scenario)
 
