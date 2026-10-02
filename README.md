@@ -41,15 +41,18 @@ STOCKFISH_PATH=/opt/homebrew/bin/stockfish ./.venv/bin/python -m chessvania
 
 If it can't find one, it exits with install instructions rather than a stack trace.
 
-Terminal should be at least **80×24**. That is the floor, not the target — the
+Terminal should be at least **104×37**. That is the floor, not the target — the
 board picks the largest squares that fit and redraws as you resize the window:
 
 | terminal | square | board |
 |---|---|---|
-| 80×24 | 3×1 | 28×9 |
-| 88×26 | 5×2 | 44×17 |
-| 104×32 | 7×3 | 60×25 |
-| 120×38 | 9×4 | 76×33 |
+| 104×37 | 7×3 | 60×25 |
+| 120×45 | 9×4 | 76×33 |
+
+Pieces are drawn out of block characters rather than typed as Unicode glyphs,
+which is why the floor is what it is: smaller squares existed once and could not
+carry the art. `♜` is one character at one size and there is no bigger one, so
+past a certain point the only way to draw a larger piece is to draw it.
 
 Squares are about two columns per row because terminal cells are roughly twice
 as tall as they are wide — that ratio, not the terminal's, is what stops the
@@ -321,7 +324,9 @@ refused — use `f3` to end a fight.
 
 The tests inject a scripted opponent, so the whole suite runs without Stockfish
 installed. `tests/test_ui.py` boots the real Textual app and drives it with
-Textual's pilot, including a check that every control stays on screen at 80×24.
+Textual's pilot, including a check that every control stays on screen at the
+minimum terminal size — which `ui.layout.minimum_terminal()` derives from the
+board's smallest square, so it follows the code rather than being restated.
 
 ## Balance
 

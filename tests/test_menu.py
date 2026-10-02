@@ -14,6 +14,10 @@ from chessvania.ui.screens.fight import FightScreen
 from chessvania.ui.screens.loadout import LoadoutScreen
 from chessvania.ui.screens.menu import MenuScreen
 
+from chessvania.ui.layout import minimum_terminal
+
+MIN_TERMINAL = minimum_terminal()
+
 
 class FakeEngine:
     def configure(self, elo):
@@ -43,7 +47,7 @@ async def settled_menu(pilot, app):
 def test_the_menu_animates_in_then_settles():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             menu = app.screen
             assert menu.animating is True
             assert menu._visible_counts() == (0, 0, 0)
@@ -63,7 +67,7 @@ def test_the_menu_animates_in_then_settles():
 def test_any_key_skips_the_animation():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             menu = app.screen
             assert menu.animating is True
 
@@ -78,7 +82,7 @@ def test_any_key_skips_the_animation():
 def test_the_first_keypress_only_skips_and_does_not_select():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             await pilot.press("enter")
             await pilot.pause()
             assert isinstance(app.screen, MenuScreen), "enter should not start a run"
@@ -96,7 +100,7 @@ def test_the_first_keypress_only_skips_and_does_not_select():
 def test_the_menu_lists_every_entry():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             menu = await settled_menu(pilot, app)
             assert [i.id for i in menu.items] == [
                 "new", "load", "bestiary", "achievements", "settings", "quit"
@@ -108,7 +112,7 @@ def test_the_menu_lists_every_entry():
 def test_load_is_disabled_without_a_saved_run():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             menu = await settled_menu(pilot, app)
             load = next(i for i in menu.items if i.id == "load")
             assert load.enabled is False
@@ -120,7 +124,7 @@ def test_load_is_disabled_without_a_saved_run():
 def test_the_cursor_skips_disabled_entries():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             menu = await settled_menu(pilot, app)
             assert menu.index == 0  # new game
 
@@ -135,7 +139,7 @@ def test_the_cursor_skips_disabled_entries():
 def test_bestiary_and_achievements_open_and_come_back():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             menu = await settled_menu(pilot, app)
 
             menu.index = [i.id for i in menu.items].index("bestiary")
@@ -183,7 +187,7 @@ async def play_one_fight(pilot, app):
 def test_starting_a_run_writes_a_save():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             await settled_menu(pilot, app)
             await pilot.press("enter")
             await pilot.pause()
@@ -197,7 +201,7 @@ def test_starting_a_run_writes_a_save():
 def test_a_saved_run_can_be_resumed_next_launch():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             await play_one_fight(pilot, app)
             assert app.run_state.fight_index == 1
 
@@ -219,7 +223,7 @@ def test_a_saved_run_can_be_resumed_next_launch():
 def test_winning_records_the_enemy_and_an_achievement():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             await play_one_fight(pilot, app)
             assert app.profile.defeated, "no enemy recorded"
             assert app.profile.has("first_blood")
@@ -232,7 +236,7 @@ def test_winning_records_the_enemy_and_an_achievement():
 def test_losing_clears_the_saved_run():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             await settled_menu(pilot, app)
             await pilot.press("enter")
             await pilot.pause()
@@ -256,7 +260,7 @@ def test_locked_loadouts_are_absent_until_earned():
 
         locked = [lo for lo in LOADOUTS if lo.unlocked_by]
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             await settled_menu(pilot, app)
             await pilot.press("enter")
             await pilot.pause()
@@ -267,7 +271,7 @@ def test_locked_loadouts_are_absent_until_earned():
         save_profile(Profile(earned={lo.unlocked_by for lo in locked}))
 
         unlocked_app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with unlocked_app.run_test() as pilot:
+        async with unlocked_app.run_test(size=MIN_TERMINAL) as pilot:
             await settled_menu(pilot, unlocked_app)
             await pilot.press("enter")
             await pilot.pause()

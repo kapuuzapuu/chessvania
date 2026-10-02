@@ -1,4 +1,4 @@
-"""The board scales with the terminal, with 80x24 as the floor."""
+"""The board scales with the terminal, with 104x36 as the floor."""
 
 import asyncio
 import os
@@ -24,7 +24,7 @@ from chessvania.ui.widgets.board_view import (
     choose_cell,
 )
 
-FLOOR = (80, 24)
+FLOOR = (104, 36)
 
 
 class FakeEngine:
@@ -78,12 +78,12 @@ def test_every_cell_stays_roughly_square_on_screen():
             cell_w, cell_h)
 
 
-def test_an_80x24_terminal_gets_the_floor_rung():
+def test_the_minimum_terminal_gets_the_floor_rung():
     assert choose_cell(*board_budget(*FLOOR)) == CELL_LADDER[0]
 
 
 def test_the_floor_is_never_undercut():
-    """Below 80x24 the board stays drawable rather than collapsing."""
+    """Below 104x36 the board stays drawable rather than collapsing."""
     for size in ((70, 20), (40, 12), (1, 1)):
         assert choose_cell(*board_budget(*size)) == CELL_LADDER[0]
 
@@ -200,8 +200,8 @@ def test_nothing_overflows_at_any_terminal_size():
             run = make_run()
             await app.push_screen(FightScreen(run, make_fight(run)))
             await pilot.pause()
-            for size in ((80, 24), (88, 26), (100, 30), (104, 32),
-                         (120, 40), (160, 50), (200, 60)):
+            for size in ((104, 36), (110, 32), (120, 38), (130, 40),
+                         (160, 50), (200, 60)):
                 await pilot.resize_terminal(*size)
                 await pilot.pause()
                 await pilot.pause()

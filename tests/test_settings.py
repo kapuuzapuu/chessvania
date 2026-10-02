@@ -13,6 +13,10 @@ from chessvania.ui import theme
 from chessvania.ui.screens.menu import MenuScreen
 from chessvania.ui.screens.settings import TOGGLES, SettingsScreen
 
+from chessvania.ui.layout import minimum_terminal
+
+MIN_TERMINAL = minimum_terminal()
+
 
 class FakeEngine:
     def configure(self, elo):
@@ -174,7 +178,7 @@ def test_unknown_settings_keys_are_ignored():
 def test_settings_opens_from_the_menu_and_comes_back():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             menu = await settled_menu(pilot, app)
             menu.index = [i.id for i in menu.items].index("settings")
             await pilot.press("enter")
@@ -191,7 +195,7 @@ def test_settings_opens_from_the_menu_and_comes_back():
 def test_toggling_applies_immediately_and_writes_to_disk():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             menu = await settled_menu(pilot, app)
             menu.index = [i.id for i in menu.items].index("settings")
             await pilot.press("enter")
@@ -218,7 +222,7 @@ def test_turning_the_animation_off_skips_it_next_launch():
         save_profile(profile)
 
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             await pilot.pause()
             menu = app.screen
             assert isinstance(menu, MenuScreen)
@@ -232,7 +236,7 @@ def test_turning_the_animation_off_skips_it_next_launch():
 def test_the_animation_still_plays_when_it_is_left_on():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             assert app.screen.animating is True
 
     drive(scenario)
@@ -245,17 +249,17 @@ def test_the_saved_preference_is_applied_at_startup():
         save_profile(profile)
 
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             await pilot.pause()
             assert theme.player_filled() is True
 
     drive(scenario)
 
 
-def test_the_settings_screen_fits_an_80x24_terminal():
+def test_the_settings_screen_fits_the_minimum_terminal():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test(size=(80, 24)) as pilot:
+        async with app.run_test(size=(104, 36)) as pilot:
             menu = await settled_menu(pilot, app)
             menu.index = [i.id for i in menu.items].index("settings")
             await pilot.press("enter")
@@ -265,7 +269,7 @@ def test_the_settings_screen_fits_an_80x24_terminal():
             for widget_id in ("#page-heading", "#page-body", "#page-foot"):
                 widget = screen.query_one(widget_id)
                 region = widget.region
-                assert region.right <= 80, "%s overflows width" % widget_id
-                assert region.bottom <= 24, "%s pushed off the bottom" % widget_id
+                assert region.right <= 104, "%s overflows width" % widget_id
+                assert region.bottom <= 36, "%s pushed off the bottom" % widget_id
 
     drive(scenario)

@@ -41,7 +41,7 @@ STATUS_WIDTH = 27
 """The centre column is 28 columns wide; building to 27 keeps a column of slack.
 
 A line that wraps silently doubles this panel's height and pushes the board off
-an 80x24 terminal, so every row below is measured rather than trusted.
+a 104x30 terminal, so every row below is measured rather than trusted.
 """
 
 THREAT_ROWS = 3

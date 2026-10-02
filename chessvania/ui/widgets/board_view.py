@@ -16,7 +16,7 @@ LEFT_MARGIN = 2
 RIGHT_MARGIN = 2
 HEADER_ROWS = 1
 
-CELL_LADDER = ((3, 1), (5, 2), (7, 3), (9, 4))
+CELL_LADDER = ((7, 3), (9, 4))
 """(columns, rows) per square, smallest first.
 
 Terminal cells are roughly twice as tall as they are wide, so a square that
@@ -24,8 +24,10 @@ Terminal cells are roughly twice as tall as they are wide, so a square that
 own, is what keeps the board from reading as letterboxed. Widths are odd so a
 single glyph centres exactly.
 
-The first rung is the floor: 3x1 is what fits an 80x24 terminal, which is the
-smallest size the game supports.
+The first rung is the floor: 7x3 is what fits a 104x30 terminal, which is the
+smallest size the game supports. Smaller squares existed once -- 3x1 drew a bare
+Unicode glyph and 5x2 a cramped sprite -- and were dropped once the drawn pieces
+became the point; a board that small could not carry them.
 """
 
 CELL_WIDTH = CELL_LADDER[0][0]
@@ -41,7 +43,7 @@ def choose_cell(available_w: int, available_h: int):
     """The largest cell size that fits the space, never smaller than the floor.
 
     Returns the floor rung even when it does not fit, because a cramped board is
-    a better failure than no board: below 80x24 the whole screen is compromised
+    a better failure than no board: below 104x30 the whole screen is compromised
     anyway, and clamping here would only hide that.
     """
     best = CELL_LADDER[0]

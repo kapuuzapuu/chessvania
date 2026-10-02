@@ -17,7 +17,12 @@ from __future__ import annotations
 from typing import Tuple
 
 from .. import config
-from .widgets.board_view import BoardView, board_size, choose_cell
+from .widgets.board_view import (
+    CELL_LADDER,
+    BoardView,
+    board_size,
+    choose_cell,
+)
 
 LEFT_COLUMN = 17
 """Width of the bench column (`#left`)."""
@@ -28,12 +33,48 @@ RIGHT_MIN = 25
 MAIN_PAD_X = 2
 """`#main` pads one column on each side, outside all three columns."""
 
-CHROME_ROWS = 5
-"""Rows the board never gets: the top bar, the padding above it, and the status
-block beneath it with its margin."""
+STATUS_MAX_ROWS = 9
+"""Tallest the status block under the board can get.
 
-DEV_BAR_ROWS = 2
-"""The docked diagnostics strip, when `DEV_MODE` is on."""
+Counted off `FightScreen._status_text`, worst case:
+
+    1  a notice, or "<enemy> is thinking..."
+    1  the THREAT header
+    1  a check line
+    3  threat lines           (`fight.THREAT_ROWS`)
+    1  "+N more attacked"
+    1  an opportunity line
+    1  the control hint
+
+Raise THREAT_ROWS, or add another optional line, and this must follow."""
+
+CHROME_ROWS = 3 + STATUS_MAX_ROWS
+"""Rows the board never gets: the top bar, the padding above it, the status
+block's top margin, and the status block itself at full height.
+
+This reserved only 5 rows until the small squares were dropped. The board was
+then 9 rows tall and the slack hid the shortfall; at 25 rows there is none, and
+a busy threat readout ran straight off the bottom of the screen."""
+
+DEV_BAR_ROWS = 6
+"""The docked diagnostics strip, when `DEV_MODE` is on.
+
+Reserves its EXPANDED height. The strip is 3 rows collapsed and 6 with f1
+held open, and a dev session spends most of its time expanded -- reserving the
+smaller number means the board resizes under you the moment you open it."""
+
+
+def minimum_terminal(dev_mode: bool = False) -> Tuple[int, int]:
+    """The smallest terminal the game supports, derived rather than declared.
+
+    It is whatever the floor rung of `CELL_LADDER` needs once the two side
+    columns and the chrome are paid for. Dropping or adding a rung moves this
+    automatically, which is the point -- the number appears in the README and
+    in half the test suite, and it has been wrong before.
+    """
+    board_w, board_h = board_size(*CELL_LADDER[0])
+    return (board_w + LEFT_COLUMN + RIGHT_MIN + MAIN_PAD_X,
+            board_h + CHROME_ROWS + (DEV_BAR_ROWS if dev_mode else 0))
 
 
 def board_budget(width: int, height: int, dev_mode: bool = False) -> Tuple[int, int]:

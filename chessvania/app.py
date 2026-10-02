@@ -58,14 +58,16 @@ class ChessvaniaApp(App):
         padding: 1 1 0 1;
     }
 
-    /* 17 + 28 + 33 = 78, which fits the 80-column terminal the game targets */
+    /* 17 + 60 + 25 + 2 = 104, the terminal width the game now targets. These
+       are starting values only -- ui/layout.scale_board resizes the centre
+       column and the board to whatever rung the real terminal can hold. */
     #left {
         width: 17;
         height: 1fr;
     }
 
     #center {
-        width: 28;
+        width: 60;
         height: 1fr;
     }
 
@@ -90,8 +92,8 @@ class ChessvaniaApp(App):
     }
 
     #board {
-        height: 9;
-        width: 28;
+        height: 25;
+        width: 60;
     }
 
     #status {

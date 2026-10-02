@@ -53,21 +53,25 @@ def test_no_two_pieces_look_the_same():
             rendered[key] = piece_type
 
 
-def test_the_smallest_rung_has_no_art_and_keeps_the_glyph():
-    """3x1 has no room to draw anything, so it stays a Unicode glyph -- which
-    is also what preserves the outlined/solid split at the default size."""
-    floor_w, floor_h = CELL_LADDER[0]
-    assert not piece_art.has_art(floor_w, floor_h)
+def test_every_rung_draws_sprites():
+    """There is no glyph fallback left: both squares carry art.
 
-
-def test_every_other_rung_does_have_art():
-    for cell_w, cell_h in CELL_LADDER[1:]:
+    The smaller rungs that drew a bare Unicode glyph were dropped once the
+    sprites became the point, so `theme.piece_glyph` no longer reaches the
+    board -- it still dresses the bench, shop, loadout and bestiary.
+    """
+    for cell_w, cell_h in CELL_LADDER:
         assert piece_art.has_art(cell_w, cell_h), (
-            "cell %dx%d scaled up but still draws a lone glyph" % (cell_w, cell_h))
+            "cell %dx%d has no sprites" % (cell_w, cell_h))
+
+
+def test_sprites_exist_for_exactly_the_rungs_on_the_ladder():
+    """An orphan sprite set is dead weight; a missing one is a blank board."""
+    assert sorted(piece_art.PIXELS) == sorted(CELL_LADDER)
 
 
 def test_rendered_rows_are_exactly_the_cell_size():
-    for cell_w, cell_h in CELL_LADDER[1:]:
+    for cell_w, cell_h in CELL_LADDER:
         for piece_type in PIECE_TYPES:
             rows = piece_art.art_for(cell_w, cell_h, piece_type)
             assert len(rows) == cell_h
@@ -99,33 +103,3 @@ def test_a_drawn_board_keeps_its_rectangle():
                     board_size(cell_w, cell_h)
 
     asyncio.run(scenario())
-
-
-def test_the_larger_sizes_keep_a_clear_row_above_the_piece():
-    """Pieces sit on their squares rather than tiling edge to edge.
-
-    5x2 is exempt: four pixel rows cannot spare a character row, and it is the
-    one size where the piece legitimately fills its square.
-    """
-    for (cell_w, cell_h), table in piece_art.PIXELS.items():
-        if (cell_w, cell_h) == (5, 2):
-            continue
-        for piece_type, pixels in table.items():
-            top_gap = next(i for i, row in enumerate(pixels) if "#" in row)
-            assert top_gap >= 2, (
-                "%dx%d piece %d has only %d clear pixel rows above it; "
-                "ranks will run together" % (cell_w, cell_h, piece_type, top_gap))
-
-
-def test_blank_rows_come_in_pairs():
-    """Pixel rows fold two-at-a-time, so an odd offset re-pairs the whole sprite.
-
-    A sprite shifted by an odd number of rows renders hollow -- its halves land
-    in different character cells. Catching it here beats noticing it on a board.
-    """
-    for (cell_w, cell_h), table in piece_art.PIXELS.items():
-        for piece_type, pixels in table.items():
-            top_gap = next(i for i, row in enumerate(pixels) if "#" in row)
-            assert top_gap % 2 == 0, (
-                "%dx%d piece %d starts on pixel row %d; an odd offset splits "
-                "every half-block pair" % (cell_w, cell_h, piece_type, top_gap))

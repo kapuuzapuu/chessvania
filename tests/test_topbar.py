@@ -75,12 +75,12 @@ def test_the_tiers_only_get_terser():
 
 
 def test_the_enemy_name_survives_at_the_minimum_terminal_size():
-    """80x24 is the supported floor; the name used to be cut off there."""
+    """104x36 is the supported floor; the name used to be cut off at 80."""
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test(size=(80, 24)) as pilot:
+        async with app.run_test(size=(104, 36)) as pilot:
             await open_fight(app, pilot)
-            bar = await bar_at(pilot, app, 80, 24)
+            bar = await bar_at(pilot, app, 104, 36)
             assert SUBTITLE in bar.render().plain
             assert "…" not in bar.render().plain
 

@@ -6,8 +6,8 @@ so past the smallest square the pieces are drawn rather than typed.
 Each sprite is a pixel grid, and `▀` is what makes the resolution work: it
 paints its top half in the foreground colour and its bottom half in the
 background. Since "empty" here IS the square's own colour, one character row
-carries two pixel rows for free. A 5x2 square is therefore a 5x4 canvas, 7x3 is
-7x6, and 9x4 is 9x8.
+carries two pixel rows for free. A 7x3 square is therefore a 7x6 canvas and 9x4 is
+9x8.
 
 A PIECE DELIBERATELY DOES NOT FILL ITS SQUARE. Each sprite leaves a clear
 column on each side, and at 7x3 and 9x4 a clear character row above it as well,
@@ -31,8 +31,8 @@ ONE DELIBERATE DIFFERENCE FROM THE GLYPH PATH: these sprites are the same for
 both armies, so at these sizes the sides are told apart by COLOUR ALONE. The
 Unicode path keeps the outlined/solid split and its accessibility guarantee (see
 `theme.piece_glyph`); this was a considered trade, not an oversight -- six pieces
-have to stay distinct from each other first, and at 5x4 pixels there is not
-enough room to also carry a second fill.
+have to stay distinct from each other first, and at these resolutions there is
+not enough room to also carry a second fill.
 """
 
 from __future__ import annotations
@@ -43,165 +43,126 @@ import chess
 
 # (cell columns, cell rows) -> piece type -> pixel rows, '#' set and '.' clear.
 #
-# THE OUTER COLUMN ON EACH SIDE STAYS CLEAR, and every size above 5x2 also
-# keeps two clear pixel rows (one character row) on top. Squares abut directly,
+# THE OUTER COLUMN ON EACH SIDE STAYS CLEAR, and every size keeps two clear
+# pixel rows (one character row) on top. Squares abut directly,
 # so art reaching an edge fuses with its neighbour and a back rank turns into
 # one unreadable mass. `tests/test_piece_art.py` enforces both.
 #
 # Blank rows must be added two at a time: pixel rows fold in PAIRS into one
 # character row, so an odd offset re-pairs every row and hollows the sprite out.
 PIXELS: Dict[Tuple[int, int], Dict[int, List[str]]] = {
-    # 5 x 2 cell  ->  5 x 4 pixels
-    (5, 2): {
-        chess.PAWN: [
-            ".###.",
-            ".###.",
-            "..#..",
-            ".###.",
-        ],
-        chess.KNIGHT: [
-            ".##..",
-            ".###.",
-            "..##.",
-            ".###.",
-        ],
-        chess.BISHOP: [
-            "..#..",
-            ".#.#.",
-            ".###.",
-            ".###.",
-        ],
-        chess.ROOK: [
-            ".#.#.",
-            ".###.",
-            ".###.",
-            ".###.",
-        ],
-        chess.QUEEN: [
-            ".#.#.",
-            "..#..",
-            ".###.",
-            ".###.",
-        ],
-        chess.KING: [
-            "..#..",
-            ".###.",
-            "..#..",
-            ".###.",
-        ],
-    },
     # 7 x 3 cell  ->  7 x 6 pixels
     (7, 3): {
         chess.PAWN: [
-            ".......",
             ".......",
             "..###..",
             "..###..",
             "...#...",
             "..###..",
+            ".......",
         ],
         chess.KNIGHT: [
-            ".......",
             ".......",
             "..##...",
             "..###..",
             "...##..",
             "..###..",
+            ".......",
         ],
         chess.BISHOP: [
             ".......",
-            ".......",
             "...#...",
             "..#.#..",
             "..###..",
             "..###..",
+            ".......",
         ],
         chess.ROOK: [
             ".......",
-            ".......",
             "..#.#..",
             "..###..",
             "..###..",
             "..###..",
+            ".......",
         ],
         chess.QUEEN: [
             ".......",
-            ".......",
             "..#.#..",
             "...#...",
             "..###..",
             "..###..",
+            ".......",
         ],
         chess.KING: [
             ".......",
+            "...#...",
+            "..###..",
+            "...#...",
+            "..###..",
             ".......",
-            "...#...",
-            "..###..",
-            "...#...",
-            "..###..",
         ],
     },
     # 9 x 4 cell  ->  9 x 8 pixels
     (9, 4): {
         chess.PAWN: [
             ".........",
-            ".........",
             "...###...",
             "...###...",
             "....#....",
             "...###...",
             "...###...",
             "..#####..",
+            ".........",
         ],
         chess.KNIGHT: [
             ".........",
+            "...###...",
+            "..#####..",
+            "..##.##..",
+            ".....##..",
+            "...###...",
+            "..#####..",
             ".........",
-            "..##.....",
-            "..####...",
-            "..#####..",
-            "....###..",
-            "....###..",
-            "..#####..",
         ],
         chess.BISHOP: [
-            ".........",
             ".........",
             "....#....",
             "...#.#...",
             "...###...",
-            "...###...",
+            "....#....",
             "...###...",
             "..#####..",
+            ".........",
         ],
         chess.ROOK: [
             ".........",
-            ".........",
             "..#.#.#..",
             "..#####..",
             "...###...",
             "...###...",
             "...###...",
             "..#####..",
+            ".........",
         ],
         chess.QUEEN: [
             ".........",
-            ".........",
             "..#.#.#..",
             "...###...",
             "...###...",
-            "...###...",
+            "....#....",
             "...###...",
             "..#####..",
+            ".........",
         ],
         chess.KING: [
             ".........",
-            ".........",
+            "....#....",
             "...###...",
             "....#....",
             "...###...",
             "...###...",
-            "...###...",
             "..#####..",
+            ".........",
         ],
     },
 }

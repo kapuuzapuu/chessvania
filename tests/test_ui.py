@@ -11,12 +11,17 @@ from chessvania import config
 from chessvania.app import ChessvaniaApp
 from chessvania.core.postfight import Step
 from chessvania.core.threat import Danger
+from chessvania.ui import theme
 from chessvania.ui.screens.fight import STATUS_WIDTH, FightScreen, Zone
-from chessvania.ui.widgets.board_view import BoardView
+from chessvania.ui.widgets.board_view import CELL_LADDER, BoardView, board_size
 from chessvania.ui.screens.loadout import LoadoutScreen
 from chessvania.ui.screens.postfight import PostFightScreen
 from chessvania.ui.screens.postfight import Zone as PostZone
 from chessvania.ui.screens.menu import MenuScreen
+
+from chessvania.ui.layout import minimum_terminal
+
+MIN_TERMINAL = minimum_terminal()
 
 
 class FakeEngine:
@@ -43,7 +48,7 @@ def drive(scenario):
 def test_app_boots_to_the_menu():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             assert isinstance(app.screen, MenuScreen)
             await pilot.press("escape")
             await pilot.pause()
@@ -58,7 +63,7 @@ def test_starting_a_run_reaches_the_fight_screen():
     async def scenario():
         engine = FakeEngine()
         app = ChessvaniaApp(engine=engine, seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             await start_fight(pilot, app)
 
             assert isinstance(app.screen, FightScreen)
@@ -108,7 +113,7 @@ async def move_cursor_to(pilot, screen, square):
 def test_arrow_keys_move_the_cursor():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await start_fight(pilot, app)
             start = screen.cursor
 
@@ -126,7 +131,7 @@ def test_arrow_keys_move_the_cursor():
 def test_the_cursor_stops_at_the_board_edge():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await start_fight(pilot, app)
             for _ in range(12):
                 await pilot.press("down")
@@ -139,7 +144,7 @@ def test_the_cursor_stops_at_the_board_edge():
 def test_selecting_then_moving_plays_the_move():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await start_fight(pilot, app)
             assert screen.fight.player_moves == 0
 
@@ -163,7 +168,7 @@ def test_selecting_then_moving_plays_the_move():
 def test_escape_clears_a_selection():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await start_fight(pilot, app)
             await move_cursor_to(pilot, screen, chess.E2)
             await pilot.press("enter")
@@ -181,7 +186,7 @@ def test_escape_clears_a_selection():
 def test_selecting_an_empty_square_does_nothing():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await start_fight(pilot, app)
             await move_cursor_to(pilot, screen, chess.E5)
             await pilot.press("enter")
@@ -195,7 +200,7 @@ def test_selecting_an_empty_square_does_nothing():
 def test_tab_switches_between_board_and_bench():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await start_fight(pilot, app)
             assert screen.zone is Zone.BOARD
 
@@ -247,7 +252,7 @@ async def open_the_promotion_picker(pilot, screen):
 def test_promotion_opens_a_picker_instead_of_auto_queening():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await promotion_ready_screen(pilot, app)
             await open_the_promotion_picker(pilot, screen)
 
@@ -263,7 +268,7 @@ def test_promotion_opens_a_picker_instead_of_auto_queening():
 def test_the_picker_can_under_promote_by_letter():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await promotion_ready_screen(pilot, app)
             await open_the_promotion_picker(pilot, screen)
 
@@ -280,7 +285,7 @@ def test_the_picker_can_under_promote_by_letter():
 def test_the_picker_can_under_promote_with_arrows():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await promotion_ready_screen(pilot, app)
             await open_the_promotion_picker(pilot, screen)
 
@@ -299,7 +304,7 @@ def test_the_picker_can_under_promote_with_arrows():
 def test_escape_cancels_a_promotion():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await promotion_ready_screen(pilot, app)
             await open_the_promotion_picker(pilot, screen)
 
@@ -339,7 +344,7 @@ def test_the_status_panel_reads_out_threats():
 
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await threat_screen(pilot, app, *HANGING)
             panel = screen._status_text().plain
 
@@ -353,13 +358,15 @@ def test_the_status_panel_reads_out_threats():
 def test_a_hanging_piece_is_marked_on_the_board():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await threat_screen(pilot, app, *HANGING)
             board = screen.query_one("#board", BoardView)
 
             assert board.threats[chess.A1].level is Danger.HANGING
-            # the marker rides in the cell's trailing column
-            assert "♖!" in board._render_board().plain
+            # The board draws sprites, not glyphs, so there is no ♖ to anchor
+            # on -- the marker rides the trailing column of the cell's top row.
+            marker = theme.threat_marker(Danger.HANGING)
+            assert marker in board._render_board().plain
 
     drive(scenario)
 
@@ -367,7 +374,7 @@ def test_a_hanging_piece_is_marked_on_the_board():
 def test_check_is_called_out_with_a_way_out_count():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await threat_screen(pilot, app, *CROWDED)
             panel = screen._status_text().plain
 
@@ -382,7 +389,7 @@ def test_check_is_called_out_with_a_way_out_count():
 def test_the_inspect_panel_explains_the_square_under_the_cursor():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await threat_screen(pilot, app, *CROWDED)
 
             await move_cursor_to(pilot, screen, chess.A1)
@@ -401,12 +408,12 @@ def test_the_threat_panel_never_wraps_or_falls_off_the_fold():
     """Every row is built to 27 columns for a 28-column centre panel.
 
     A wrapped row silently doubles the panel's height, and the board is directly
-    above it -- so a wrap here is how the board goes off an 80x24 terminal.
+    above it -- so a wrap here is how the board goes off a 104x30 terminal.
     """
 
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test(size=(80, 24)) as pilot:
+        async with app.run_test(size=(104, 36)) as pilot:
             screen = await threat_screen(pilot, app, *CROWDED)
 
             for line in screen._threat_panel().plain.split("\n"):
@@ -421,13 +428,13 @@ def test_the_threat_panel_never_wraps_or_falls_off_the_fold():
 
 def test_the_threat_panel_survives_a_notice_and_the_dev_bar():
     """The busiest this panel gets: a casualty notice, a full threat list and
-    the diagnostics strip all competing for the same 24 rows."""
+    an expanded diagnostics strip all competing for the same screen."""
 
     async def scenario():
         config.DEV_MODE = True
         try:
             app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-            async with app.run_test(size=(80, 24)) as pilot:
+            async with app.run_test(size=minimum_terminal(dev_mode=True)) as pilot:
                 screen = await threat_screen(pilot, app, *CROWDED)
                 await pilot.press("f1")  # expand the dev bar
                 screen.set_status("Bulwark takes your rook — gone for good")
@@ -435,7 +442,8 @@ def test_the_threat_panel_survives_a_notice_and_the_dev_bar():
 
                 status = screen.query_one("#status")
                 assert status.region.y + status.region.height <= screen.size.height
-                assert screen.query_one("#board").region.height == 9
+                floor_h = board_size(*CELL_LADDER[0])[1]
+                assert screen.query_one("#board").region.height == floor_h
         finally:
             config.DEV_MODE = False
 
@@ -445,7 +453,7 @@ def test_the_threat_panel_survives_a_notice_and_the_dev_bar():
 def test_post_fight_runs_on_the_keyboard():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await start_fight(pilot, app)
             app.finish_fight(app.run_state, screen.fight, [], won=True)
             await pilot.pause()
@@ -476,7 +484,7 @@ def test_post_fight_runs_on_the_keyboard():
 def test_swap_step_exposes_board_and_bench_to_the_keyboard():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await start_fight(pilot, app)
             app.finish_fight(app.run_state, screen.fight, [], won=True)
             await pilot.pause()
@@ -508,7 +516,7 @@ def test_swap_step_exposes_board_and_bench_to_the_keyboard():
 def test_there_is_no_text_input_left():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             screen = await start_fight(pilot, app)
             assert not screen.query("Input")
 
@@ -518,7 +526,7 @@ def test_there_is_no_text_input_left():
 def test_winning_routes_into_the_post_fight_rail():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             await start_fight(pilot, app)
 
             fight_screen = app.screen
@@ -555,7 +563,7 @@ def test_winning_routes_into_the_post_fight_rail():
 def test_buying_in_the_ui_benches_the_piece():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             await start_fight(pilot, app)
 
             app.finish_fight(app.run_state, app.screen.fight, [], won=True)
@@ -577,12 +585,12 @@ def test_buying_in_the_ui_benches_the_piece():
     drive(scenario)
 
 
-def test_the_whole_ui_fits_an_80x24_terminal():
-    """The mockup targets 80x24; every control must stay clickable there."""
+def test_the_whole_ui_fits_the_minimum_terminal():
+    """104x30 is the supported minimum; every control must stay clickable."""
 
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test(size=(80, 24)) as pilot:
+        async with app.run_test(size=(104, 36)) as pilot:
             await start_fight(pilot, app)
 
             def assert_all_visible(where):
@@ -620,7 +628,7 @@ def test_the_whole_ui_fits_an_80x24_terminal():
 def test_losing_routes_to_defeat():
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test() as pilot:
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
             await start_fight(pilot, app)
 
             app.finish_fight(app.run_state, app.screen.fight, [], won=False)
