@@ -16,6 +16,13 @@ LEFT_MARGIN = 2
 RIGHT_MARGIN = 2
 HEADER_ROWS = 1
 
+TARGET_DOT = "·"
+"""Marks an empty square you could move to, on an odd-height cell."""
+
+TARGET_HALF = "▄"
+"""The upper half of that mark on an even-height cell, paired with `▀` on the
+row below so the two straddle the cell's true centre."""
+
 CELL_LADDER = ((7, 3), (9, 4))
 """(columns, rows) per square, smallest first.
 
@@ -205,7 +212,10 @@ class BoardView(Static):
             background = theme.SQ_CAPTURE
 
         if piece is None:
-            glyph = "·" if is_target else " "
+            # See the straddle note below: on an even-height cell this is the
+            # upper half of a two-row mark, on an odd one it is the whole dot.
+            glyph = (TARGET_HALF if self.cell_h % 2 == 0 else TARGET_DOT) \
+                if is_target else " "
             foreground = theme.GREEN if is_target else theme.FAINT
         else:
             glyph = theme.piece_glyph(piece.piece_type, piece.color)
@@ -250,6 +260,19 @@ class BoardView(Static):
 
         cell = Text()
         if sub_row != self.glyph_row:
+            # An even-height cell has no middle row -- its true centre is the
+            # boundary between the two inner ones -- so a destination dot drawn
+            # on either of them sits visibly high or low. Straddle the boundary
+            # instead: `▄` inks the bottom half of the upper row and `▀` the top
+            # half of the lower one, putting the mark dead centre. Odd heights
+            # have a real middle row and keep the plain dot.
+            if (is_target and piece is None and self.cell_h % 2 == 0
+                    and sub_row == self.glyph_row + 1):
+                chars = [" "] * self.cell_w
+                chars[self.cell_w // 2] = "▀"
+                for char in chars:
+                    cell.append(char, style="%s on %s" % (theme.GREEN, background))
+                return cell
             # A tall cell is one square: only the middle row carries anything,
             # the rest is the square's colour.
             cell.append(" " * self.cell_w, style="on %s" % background)

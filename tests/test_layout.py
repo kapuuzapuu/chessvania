@@ -230,3 +230,63 @@ def test_the_postfight_board_scales_too():
             assert not bad, "post-fight overflowed to %s" % (worst,)
 
     drive(scenario)
+
+
+# -- the destination marker ---------------------------------------------
+
+
+def test_the_destination_marker_sits_at_the_cell_centre():
+    """An even-height cell has no middle row, so the mark straddles two.
+
+    Drawn on either inner row alone it reads visibly high or low -- a twelfth
+    of the cell out at 9x4. `▄` on the upper row and `▀` on the lower ink the
+    two pixels either side of the boundary, which is the exact centre.
+    """
+    async def scenario():
+        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
+        async with app.run_test(size=(160, 55)) as pilot:
+            run = make_run()
+            await app.push_screen(FightScreen(run, make_fight(run)))
+            await pilot.pause()
+            view = app.screen.query_one("#board", BoardView)
+
+            for cell_w, cell_h in CELL_LADDER:
+                view.cell_w, view.cell_h = cell_w, cell_h
+                view.board = chess.Board(None)
+                view.targets = {chess.E4}
+                rows = view._render_board().plain.split("\n")
+                inked = [i for i, row in enumerate(rows)
+                         if any(m in row for m in ("·", "▄", "▀"))]
+                assert inked, "cell %dx%d drew no marker" % (cell_w, cell_h)
+                if cell_h % 2:
+                    assert len(inked) == 1, (
+                        "odd-height %dx%d should use one centred dot, got %s"
+                        % (cell_w, cell_h, inked))
+                else:
+                    assert len(inked) == 2 and inked[1] == inked[0] + 1, (
+                        "even-height %dx%d must straddle two rows, got %s"
+                        % (cell_w, cell_h, inked))
+
+    drive(scenario)
+
+
+def test_the_marker_is_centred_horizontally_too():
+    async def scenario():
+        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
+        async with app.run_test(size=(160, 55)) as pilot:
+            run = make_run()
+            await app.push_screen(FightScreen(run, make_fight(run)))
+            await pilot.pause()
+            view = app.screen.query_one("#board", BoardView)
+
+            for cell_w, cell_h in CELL_LADDER:
+                view.cell_w, view.cell_h = cell_w, cell_h
+                view.board = chess.Board(None)
+                view.targets = {chess.A8}        # first file, nearest the label
+                for row in view._render_board().plain.split("\n"):
+                    for mark in ("·", "▄", "▀"):
+                        if mark in row:
+                            assert row.index(mark) - 2 == cell_w // 2, (
+                                "cell %dx%d marker off centre" % (cell_w, cell_h))
+
+    drive(scenario)
