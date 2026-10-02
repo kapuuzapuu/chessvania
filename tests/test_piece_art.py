@@ -99,3 +99,33 @@ def test_a_drawn_board_keeps_its_rectangle():
                     board_size(cell_w, cell_h)
 
     asyncio.run(scenario())
+
+
+def test_the_larger_sizes_keep_a_clear_row_above_the_piece():
+    """Pieces sit on their squares rather than tiling edge to edge.
+
+    5x2 is exempt: four pixel rows cannot spare a character row, and it is the
+    one size where the piece legitimately fills its square.
+    """
+    for (cell_w, cell_h), table in piece_art.PIXELS.items():
+        if (cell_w, cell_h) == (5, 2):
+            continue
+        for piece_type, pixels in table.items():
+            top_gap = next(i for i, row in enumerate(pixels) if "#" in row)
+            assert top_gap >= 2, (
+                "%dx%d piece %d has only %d clear pixel rows above it; "
+                "ranks will run together" % (cell_w, cell_h, piece_type, top_gap))
+
+
+def test_blank_rows_come_in_pairs():
+    """Pixel rows fold two-at-a-time, so an odd offset re-pairs the whole sprite.
+
+    A sprite shifted by an odd number of rows renders hollow -- its halves land
+    in different character cells. Catching it here beats noticing it on a board.
+    """
+    for (cell_w, cell_h), table in piece_art.PIXELS.items():
+        for piece_type, pixels in table.items():
+            top_gap = next(i for i, row in enumerate(pixels) if "#" in row)
+            assert top_gap % 2 == 0, (
+                "%dx%d piece %d starts on pixel row %d; an odd offset splits "
+                "every half-block pair" % (cell_w, cell_h, piece_type, top_gap))

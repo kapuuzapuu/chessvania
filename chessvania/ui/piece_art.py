@@ -9,9 +9,23 @@ background. Since "empty" here IS the square's own colour, one character row
 carries two pixel rows for free. A 5x2 square is therefore a 5x4 canvas, 7x3 is
 7x6, and 9x4 is 9x8.
 
+A PIECE DELIBERATELY DOES NOT FILL ITS SQUARE. Each sprite leaves a clear
+column on each side, and at 7x3 and 9x4 a clear character row above it as well,
+so pieces sit on their squares the way they do in a printed diagram instead of
+tiling edge to edge. There was once a denser set drawn to fill the 9x8 canvas;
+it carried more detail and read worse, because neighbouring pieces fused and
+ranks ran together.
+
+What that costs is detail: a well-proportioned piece in a 9x4 square is about
+5x6 units, which is what the 7x3 square already draws. So the largest rung buys
+a bigger BOARD, not a bigger piece, and the art rungs sit one step below the
+square rungs. The chunkier look is the trade, taken on purpose.
+
 Sprites are hand-authored per size rather than scaled from one master. At these
 resolutions downsampling turns to mush; every pixel has to be placed on purpose,
-which is how pixel art is normally done.
+which is how pixel art is normally done. The grids below are written out in
+full even where two sizes share a shape, so editing one never silently changes
+another.
 
 ONE DELIBERATE DIFFERENCE FROM THE GLYPH PATH: these sprites are the same for
 both armies, so at these sizes the sides are told apart by COLOUR ALONE. The
@@ -29,9 +43,13 @@ import chess
 
 # (cell columns, cell rows) -> piece type -> pixel rows, '#' set and '.' clear.
 #
-# THE OUTER COLUMN ON EACH SIDE STAYS CLEAR. Squares abut directly, so a
-# sprite that reaches the edge fuses with its neighbour and a back rank turns
-# into one unreadable mass. `tests/test_piece_art.py` enforces it.
+# THE OUTER COLUMN ON EACH SIDE STAYS CLEAR, and every size above 5x2 also
+# keeps two clear pixel rows (one character row) on top. Squares abut directly,
+# so art reaching an edge fuses with its neighbour and a back rank turns into
+# one unreadable mass. `tests/test_piece_art.py` enforces both.
+#
+# Blank rows must be added two at a time: pixel rows fold in PAIRS into one
+# character row, so an odd offset re-pairs every row and hollows the sprite out.
 PIXELS: Dict[Tuple[int, int], Dict[int, List[str]]] = {
     # 5 x 2 cell  ->  5 x 4 pixels
     (5, 2): {
@@ -75,115 +93,115 @@ PIXELS: Dict[Tuple[int, int], Dict[int, List[str]]] = {
     # 7 x 3 cell  ->  7 x 6 pixels
     (7, 3): {
         chess.PAWN: [
+            ".......",
+            ".......",
             "..###..",
             "..###..",
             "...#...",
             "..###..",
-            "..###..",
-            ".#####.",
         ],
         chess.KNIGHT: [
-            ".##....",
-            ".####..",
-            ".#####.",
-            "...###.",
-            "...###.",
-            ".#####.",
+            ".......",
+            ".......",
+            "..##...",
+            "..###..",
+            "...##..",
+            "..###..",
         ],
         chess.BISHOP: [
+            ".......",
+            ".......",
             "...#...",
             "..#.#..",
             "..###..",
             "..###..",
-            "..###..",
-            ".#####.",
         ],
         chess.ROOK: [
-            ".#.#.#.",
-            ".#####.",
+            ".......",
+            ".......",
+            "..#.#..",
             "..###..",
             "..###..",
             "..###..",
-            ".#####.",
         ],
         chess.QUEEN: [
-            ".#.#.#.",
-            "..###..",
-            "..###..",
-            "..###..",
-            "..###..",
-            ".#####.",
-        ],
-        chess.KING: [
-            "..###..",
+            ".......",
+            ".......",
+            "..#.#..",
             "...#...",
             "..###..",
             "..###..",
+        ],
+        chess.KING: [
+            ".......",
+            ".......",
+            "...#...",
             "..###..",
-            ".#####.",
+            "...#...",
+            "..###..",
         ],
     },
     # 9 x 4 cell  ->  9 x 8 pixels
     (9, 4): {
         chess.PAWN: [
+            ".........",
+            ".........",
+            "...###...",
+            "...###...",
+            "....#....",
+            "...###...",
             "...###...",
             "..#####..",
-            "..#####..",
-            "...###...",
-            "...###...",
-            "..#####..",
-            ".#######.",
-            ".#######.",
         ],
         chess.KNIGHT: [
+            ".........",
+            ".........",
             "..##.....",
             "..####...",
-            ".######..",
-            ".##..###.",
-            ".....###.",
-            "....####.",
-            "...#####.",
-            ".#######.",
+            "..#####..",
+            "....###..",
+            "....###..",
+            "..#####..",
         ],
         chess.BISHOP: [
+            ".........",
+            ".........",
             "....#....",
             "...#.#...",
-            "..#####..",
-            "..##.##..",
-            "..#####..",
+            "...###...",
+            "...###...",
             "...###...",
             "..#####..",
-            ".#######.",
         ],
         chess.ROOK: [
-            ".##.#.##.",
-            ".#######.",
+            ".........",
+            ".........",
+            "..#.#.#..",
             "..#####..",
+            "...###...",
+            "...###...",
+            "...###...",
             "..#####..",
-            "..#####..",
-            "..#####..",
-            "..#####..",
-            ".#######.",
         ],
         chess.QUEEN: [
-            ".#.#.#.#.",
-            ".#######.",
-            "..#####..",
-            "..#####..",
-            "..#####..",
+            ".........",
+            ".........",
+            "..#.#.#..",
+            "...###...",
+            "...###...",
+            "...###...",
             "...###...",
             "..#####..",
-            ".#######.",
         ],
         chess.KING: [
+            ".........",
+            ".........",
             "...###...",
             "....#....",
-            "..#####..",
+            "...###...",
+            "...###...",
             "...###...",
             "..#####..",
-            "..#####..",
-            "..#####..",
-            ".#######.",
         ],
     },
 }
