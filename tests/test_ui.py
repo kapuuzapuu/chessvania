@@ -545,11 +545,11 @@ def test_winning_routes_into_the_post_fight_rail():
 
             await pilot.click("#close-shop")
             await pilot.pause()
-            assert phase.step is Step.SELL
-
-            await pilot.click("#close-sell")
-            await pilot.pause()
             assert phase.step is Step.SWAP
+
+            await pilot.click("#close-swap")
+            await pilot.pause()
+            assert phase.step is Step.SELL
             assert phase.swaps_left == config.MAX_SWAPS
 
             await pilot.click("#finish")
@@ -618,7 +618,7 @@ def test_the_whole_ui_fits_the_minimum_terminal():
             await pilot.pause()
             assert_all_visible("sell")
 
-            await pilot.click("#close-sell")
+            await pilot.click("#close-swap")
             await pilot.pause()
             assert_all_visible("swap")
 

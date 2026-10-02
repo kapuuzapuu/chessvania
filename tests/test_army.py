@@ -34,11 +34,19 @@ def test_inventory_is_separate_from_the_board_cap():
     assert army.violations() == []
 
 
-def test_pawns_may_not_rest_on_the_back_ranks():
-    assert square_accepts(chess.PAWN, chess.E4) is True
-    assert square_accepts(chess.PAWN, chess.E1) is False
-    assert square_accepts(chess.PAWN, chess.E8) is False
+def test_you_deploy_on_the_first_three_ranks():
     assert square_accepts(chess.ROOK, chess.E1) is True
+    assert square_accepts(chess.ROOK, chess.E3) is True
+    assert square_accepts(chess.ROOK, chess.E4) is False
+    assert square_accepts(chess.ROOK, chess.E8) is False
+
+
+def test_pawns_lose_the_first_rank_on_top_of_that():
+    """Ranks 2-3, and it is not written anywhere -- the two rules compose."""
+    assert square_accepts(chess.PAWN, chess.E1) is False
+    assert square_accepts(chess.PAWN, chess.E2) is True
+    assert square_accepts(chess.PAWN, chess.E3) is True
+    assert square_accepts(chess.PAWN, chess.E4) is False
 
 
 def test_violations_flags_a_missing_king():

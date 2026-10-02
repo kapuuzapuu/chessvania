@@ -212,10 +212,17 @@ you're currently in, so the pressure is always visible.
    16-piece limit matters most — a full army has nowhere to put anything, so the
    economy is a replacement treadmill: lose pieces, buy replacements, deploy them
    into the gaps.
-3. **Sell** — unlocks only once the shop closes, so sale gold can never fund the
-   purchase you're standing in front of. It always arrives for the next shop.
-4. **Swap** — up to 3 per phase. Since purchases land on the bench, deploying one
+3. **Swap** — up to 3 per phase. Since purchases land on the bench, deploying one
    costs a swap. That budget is the tightest constraint in the game.
+
+   **You deploy on ranks 1–3 only**, and pawns on 2–3. Your army is a camp, not
+   a position: you set up at home and march out when the fight starts. Pick a
+   piece up and every square it may legally go to lights up, so the rule is
+   something you see rather than something you read.
+4. **Sell** — last, so sale gold can never fund the purchase you're standing in
+   front of; it always arrives for the next shop. Selling *after* swapping is
+   also what makes the bench legible — you cannot know which pieces are spare
+   until you have decided which ones you are fielding.
 
 **Win by checkmate.** Stalemate inverts: whoever gets stalemated *wins*, so
 delivering stalemate is a loss and you have to actually mate. Other draws

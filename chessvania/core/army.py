@@ -13,7 +13,7 @@ from typing import Dict, Iterable, List, Optional
 import chess
 
 from .. import config
-from .legality import square_accepts
+from .legality import placement_error, square_accepts
 
 _ids = itertools.count(1)
 
@@ -210,10 +210,9 @@ class Army:
         if len(self.inventory) > config.INVENTORY_CAP:
             problems.append("the bench holds %d pieces" % config.INVENTORY_CAP)
         for square, piece in self.deployment.items():
-            if not square_accepts(piece.piece_type, square):
-                problems.append(
-                    "a pawn cannot sit on %s" % chess.square_name(square)
-                )
+            why = placement_error(piece.piece_type, square)
+            if why is not None:
+                problems.append("%s: %s" % (chess.square_name(square), why))
         return problems
 
     def copy(self) -> "Army":

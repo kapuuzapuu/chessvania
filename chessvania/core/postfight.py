@@ -26,12 +26,17 @@ from .run import RunState
 class Step(Enum):
     PAYOUT = "payout"
     SHOP = "shop"
-    SELL = "sell"
     SWAP = "swap"
+    SELL = "sell"
     DONE = "done"
 
 
-STEP_ORDER = (Step.PAYOUT, Step.SHOP, Step.SELL, Step.SWAP, Step.DONE)
+STEP_ORDER = (Step.PAYOUT, Step.SHOP, Step.SWAP, Step.SELL, Step.DONE)
+"""Buy, then field what you bought, then sell what is left over.
+
+Selling last is what makes the bench legible: you cannot know which pieces are
+spare until you have decided which ones you are deploying. The earlier order --
+sell before swap -- asked you to price pieces you had not finished using."""
 
 
 @dataclass(frozen=True)
@@ -167,18 +172,18 @@ class PostFight:
             return False, "you have already spent gold this visit"
         self.run.bank_skip_bonus()
         self.skipped = True
-        self.step = Step.SELL
+        self.step = Step.SWAP
         return True, ""
 
     def close_shop(self) -> None:
         if self.step is Step.SHOP:
-            self.step = Step.SELL
+            self.step = Step.SWAP
 
-    # -- step 3: sell ----------------------------------------------------
+    # -- step 4: sell ----------------------------------------------------
 
     def can_sell(self, bench_index: int) -> Tuple[bool, str]:
         if self.step is not Step.SELL:
-            return False, "selling opens once the shop closes"
+            return False, "selling opens once you have finished swapping"
         if not 0 <= bench_index < len(self.run.army.inventory):
             return False, "no piece in that slot"
         return True, ""
@@ -195,10 +200,15 @@ class PostFight:
         return True, ""
 
     def close_sell(self) -> None:
+        """Sell is the last step, so closing it ends the phase."""
         if self.step is Step.SELL:
-            self.step = Step.SWAP
+            self.finish()
 
-    # -- step 4: swap ----------------------------------------------------
+    def close_swap(self) -> None:
+        if self.step is Step.SWAP:
+            self.step = Step.SELL
+
+    # -- step 3: swap ----------------------------------------------------
 
     @property
     def swaps_left(self) -> int:
@@ -206,7 +216,7 @@ class PostFight:
 
     def can_swap(self, a: Slot, b: Slot) -> Tuple[bool, str]:
         if self.step is not Step.SWAP:
-            return False, "swapping opens after selling"
+            return False, "swapping opens once the shop closes"
         if self.swaps_left <= 0:
             return False, "no swaps left"
         if a == b:

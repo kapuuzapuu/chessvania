@@ -44,6 +44,16 @@ is also how you deploy -- this budget is the tightest constraint in the phase.""
 BOARD_PIECE_CAP = 16
 MAX_PAWNS = 8
 
+DEPLOYMENT_RANKS = 3
+"""How many ranks from your own edge you may deploy onto -- ranks 1 to 3.
+
+Your army is a camp, not a position: you set up at home and march out when the
+fight starts. Without this the swap phase lets you post a rook on the seventh
+rank before a move is played, which is not a deployment, it is a free attack.
+
+Pawns get ranks 2 to 3 rather than 1 to 3, and that falls out rather than being
+written twice -- standard chess already forbids a pawn on rank 1."""
+
 # --------------------------------------------------------------------------
 # Economy
 # --------------------------------------------------------------------------

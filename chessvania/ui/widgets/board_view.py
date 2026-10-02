@@ -84,6 +84,9 @@ class BoardView(Static):
         self.veterancy: Dict[chess.Square, int] = {}
         self.selected: Optional[chess.Square] = None
         self.targets: Set[chess.Square] = set()
+        self.targets_are_captures = True
+        """In a fight an occupied target is a capture and reads red. In the swap
+        phase it is an exchange with your own piece, so it must not."""
         self.last_move: Optional[chess.Move] = None
         self.flash_square: Optional[chess.Square] = None
         self.cursor: Optional[chess.Square] = None
@@ -116,9 +119,11 @@ class BoardView(Static):
         self,
         selected: Optional[chess.Square],
         targets: Iterable[chess.Square] = (),
+        captures: bool = True,
     ) -> None:
         self.selected = selected
         self.targets = set(targets)
+        self.targets_are_captures = captures
         self.redraw()
 
     def set_threats(self, by_square: Optional[Dict[chess.Square, Threat]]) -> None:
@@ -208,8 +213,10 @@ class BoardView(Static):
             background = theme.SQ_CHECK
         if is_target:
             # Captures read red, quiet moves green -- the cost is visible before
-            # you commit to the move.
-            background = theme.SQ_CAPTURE if piece is not None else theme.SQ_TARGET
+            # you commit to the move. A swap-phase target is never a capture.
+            background = (theme.SQ_CAPTURE
+                          if piece is not None and self.targets_are_captures
+                          else theme.SQ_TARGET)
         if square == self.selected:
             background = theme.SQ_SELECT
         if square == self.flash_square:
@@ -244,9 +251,11 @@ class BoardView(Static):
         if piece is not None:
             sprite = piece_art.art_for(self.cell_w, self.cell_h, piece.piece_type)
 
-        if piece_art.has_art(self.cell_w, self.cell_h) and square == self.cursor:
-            # Sits above the move-composing tints rather than under them: at
-            # these sizes it is the only thing marking the cursor at all.
+        if square == self.cursor:
+            # The ONLY cursor signal. An occupied square is filled edge to edge
+            # with art and an empty one is a flat tile, so there is nowhere to
+            # put a bracket that does not sit on top of something -- and the
+            # tint carries it on its own.
             if self.cursor_active and square != self.flash_square:
                 background = theme.SQ_CURSOR
 
@@ -277,15 +286,7 @@ class BoardView(Static):
         chars[middle] = glyph
         styles[middle] = "%s on %s" % (foreground, background)
 
-        if square == self.cursor:
-            # The cursor brackets the square rather than boxing it: even at the
-            # widest cell there is no row to spare for a drawn border without
-            # the board losing a rung. The threat marker yields to it; the
-            # inspect panel spells the square out in full anyway.
-            edge = theme.GREEN if self.cursor_active else theme.FAINT
-            chars[0], chars[-1] = "[", "]"
-            styles[0] = styles[-1] = "%s on %s" % (edge, background)
-        elif marker is not None:
+        if marker is not None:
             chars[-1] = marker
             styles[-1] = "%s on %s" % (theme.threat_color(threat.level), background)
 

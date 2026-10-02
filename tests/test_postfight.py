@@ -34,7 +34,12 @@ def at_shop(run, move_count=5):
 def at_swap(run):
     phase = at_shop(run)
     phase.close_shop()
-    phase.close_sell()
+    return phase
+
+
+def at_sell(run):
+    phase = at_swap(run)
+    phase.close_swap()
     return phase
 
 
@@ -157,7 +162,7 @@ def test_skipping_without_spending_banks_a_bonus():
     assert ok
     assert run.banked_skip_bonus == config.SKIP_BONUS
     assert run.gold == purse  # unspent gold stays, so skipping compounds twice over
-    assert phase.step is Step.SELL
+    assert phase.step is Step.SWAP
 
 
 def test_spending_forfeits_the_skip_bonus():
@@ -179,19 +184,24 @@ def test_skip_preview_reports_the_actual_numbers():
     assert bonus == config.SKIP_BONUS
 
 
-# -- step 3: sell -------------------------------------------------------
+# -- step 4: sell -------------------------------------------------------
 
 
-def test_selling_is_locked_until_the_shop_closes():
+def test_selling_is_locked_until_swapping_is_done():
+    """Sell is the last step: you cannot price a piece you may still deploy."""
     army = army_from_fen(TEXTBOOK)
     army.add_to_inventory(Piece(chess.ROOK))
     run = make_run(gold=0, army=army)
     phase = at_shop(run)
 
     ok, reason = phase.sell(0)
-    assert not ok and "shop" in reason
+    assert not ok
 
-    phase.close_shop()
+    phase.close_shop()           # -> swap
+    ok, reason = phase.sell(0)
+    assert not ok and "swap" in reason
+
+    phase.close_swap()           # -> sell
     ok, _ = phase.sell(0)
     assert ok
 
@@ -202,8 +212,7 @@ def test_selling_pays_and_removes_the_piece():
     army = army_from_fen(TEXTBOOK)
     army.add_to_inventory(Piece(chess.QUEEN))
     run = make_run(gold=0, army=army)
-    phase = at_shop(run)
-    phase.close_shop()
+    phase = at_sell(run)
     purse = run.gold
 
     phase.sell(0)
@@ -211,7 +220,7 @@ def test_selling_pays_and_removes_the_piece():
     assert run.army.inventory_count == 0
 
 
-# -- step 4: swap -------------------------------------------------------
+# -- step 3: swap -------------------------------------------------------
 
 
 def test_swaps_are_capped():
@@ -247,9 +256,9 @@ def test_deploying_from_the_bench_costs_a_swap():
     run = make_run(army=army)
     phase = at_swap(run)
 
-    ok, reason = phase.swap(Slot.on_bench(0), Slot.on_board(chess.E4))
+    ok, reason = phase.swap(Slot.on_bench(0), Slot.on_board(chess.E3))
     assert ok, reason
-    assert run.army.deployment[chess.E4].piece_type == chess.QUEEN
+    assert run.army.deployment[chess.E3].piece_type == chess.QUEEN
     assert phase.swaps_left == config.MAX_SWAPS - 1
 
 
@@ -271,12 +280,40 @@ def test_the_king_cannot_leave_the_board():
     assert phase.swaps_left == config.MAX_SWAPS
 
 
-def test_a_pawn_cannot_be_swapped_onto_the_back_rank():
-    run = make_run()
+def test_a_pawn_cannot_be_swapped_onto_the_first_rank():
+    """Pawns get ranks 2-3; rank 1 is refused by standard chess, not by us."""
+    army = army_from_fen(SHIELD)
+    run = make_run(army=army)
     phase = at_swap(run)
-    ok, reason = phase.swap(Slot.on_board(chess.A2), Slot.on_board(chess.A8))
+    ok, reason = phase.swap(Slot.on_board(chess.A2), Slot.on_board(chess.C1))
     assert not ok
     assert "pawn" in reason
+
+
+def test_nothing_may_be_deployed_past_the_third_rank():
+    run = make_run()
+    phase = at_swap(run)
+    for square in (chess.A4, chess.D5, chess.H8):
+        ok, reason = phase.swap(Slot.on_board(chess.A2), Slot.on_board(square))
+        assert not ok, "%s should be out of the deployment zone" % chess.square_name(square)
+        assert "ranks 1-3" in reason
+
+
+def test_the_third_rank_is_reachable():
+    """The zone is three deep, not two -- rank 3 must actually be usable."""
+    army = army_from_fen(SHIELD)
+    run = make_run(army=army)
+    phase = at_swap(run)
+    ok, reason = phase.swap(Slot.on_board(chess.A2), Slot.on_board(chess.A3))
+    assert ok, reason
+    assert run.army.deployment[chess.A3].piece_type == chess.PAWN
+
+
+def test_a_failed_placement_still_costs_nothing():
+    run = make_run()
+    phase = at_swap(run)
+    phase.swap(Slot.on_board(chess.A2), Slot.on_board(chess.A5))
+    assert phase.swaps_left == config.MAX_SWAPS
 
 
 def test_swapping_two_empty_slots_does_nothing():
@@ -300,3 +337,38 @@ def test_finishing_advances_the_run():
     phase.finish()
     assert phase.done
     assert run.fight_index == start_index + 1
+
+
+# -- the deployment zone, as the UI sees it -----------------------------
+
+
+def test_the_highlight_matches_what_the_swap_accepts():
+    """The lit squares are generated from `can_swap`, so they cannot drift.
+
+    This is the guarantee worth pinning: a square that lights up is a square
+    the swap will take, and one that does not is one it will refuse.
+    """
+    army = army_from_fen(SHIELD)
+    army.add_to_inventory(Piece(chess.ROOK))
+    run = make_run(army=army)
+    phase = at_swap(run)
+    held = Slot.on_bench(0)
+
+    lit = [s for s in chess.SQUARES if phase.can_swap(held, Slot.on_board(s))[0]]
+    assert lit, "a benched rook should have somewhere to go"
+    for square in lit:
+        assert chess.square_rank(square) < config.DEPLOYMENT_RANKS
+    for square in chess.SQUARES:
+        if chess.square_rank(square) >= config.DEPLOYMENT_RANKS:
+            assert square not in lit
+
+
+def test_a_benched_pawn_lights_only_ranks_two_and_three():
+    army = army_from_fen("8/8/8/8/8/8/3PP3/RN2KN1R w - - 0 1")
+    army.add_to_inventory(Piece(chess.PAWN))
+    run = make_run(army=army)
+    phase = at_swap(run)
+
+    lit = [s for s in chess.SQUARES
+           if phase.can_swap(Slot.on_bench(0), Slot.on_board(s))[0]]
+    assert {chess.square_rank(s) + 1 for s in lit} == {2, 3}

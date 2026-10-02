@@ -95,7 +95,7 @@ class PostFightScreen(Screen):
                         yield Button("", id="buy-%d" % index, classes="shop-button")
                     yield Button("", id="skip")
                     yield Button("done shopping", id="close-shop")
-                    yield Button("done selling", id="close-sell")
+                    yield Button("done swapping", id="close-swap")
                     yield Button("finish", id="finish")
         yield DevBar(id="devbar")
 
@@ -129,7 +129,8 @@ class PostFightScreen(Screen):
         board_view.set_board(self._army_board(), self._veterancy_map())
         board_view.set_selection(
             self.selection.index if self.selection and self.selection.is_board else None,
-            (),
+            self._placement_targets(),
+            captures=False,
         )
         board_view.set_cursor(self.board_cursor, active=self.zone is Zone.BOARD)
 
@@ -233,9 +234,9 @@ class PostFightScreen(Screen):
         text.append("%s\n" % rule, style=theme.BORDER)
         text.append_text(self._shop_section())
         text.append("%s\n" % rule, style=theme.BORDER)
-        text.append_text(self._sell_section())
-        text.append("%s\n" % rule, style=theme.BORDER)
         text.append_text(self._swap_section())
+        text.append("%s\n" % rule, style=theme.BORDER)
+        text.append_text(self._sell_section())
         text.rstrip()  # rich's rstrip mutates in place and returns None
         return text
 
@@ -361,8 +362,12 @@ class PostFightScreen(Screen):
         text = self._header("SWAP", right, active)
 
         if active:
-            text.append("  board ↔ bench, or move\n", style=theme.DIM)
-            text.append("  to an empty square\n", style=theme.GHOST)
+            if self.selection is not None:
+                text.append("  lit squares are legal\n", style=theme.GREEN)
+            else:
+                text.append("  board ↔ bench, or move\n", style=theme.DIM)
+            text.append("  deploy on ranks 1-%d\n" % config.DEPLOYMENT_RANKS,
+                        style=theme.GHOST)
         return text
 
     # -- controls --------------------------------------------------------
@@ -394,9 +399,10 @@ class PostFightScreen(Screen):
             )
 
         self.query_one("#close-shop", Button).display = step is Step.SHOP
-        self.query_one("#close-sell", Button).display = step is Step.SELL
+        self.query_one("#close-swap", Button).display = step is Step.SWAP
         finish = self.query_one("#finish", Button)
-        finish.display = step in (Step.PAYOUT, Step.SWAP)
+        # Sell is the last step now, so "next fight" is what closes it.
+        finish.display = step in (Step.PAYOUT, Step.SELL)
         finish.label = "collect" if step is Step.PAYOUT else "next fight"
 
     def _visible_controls(self) -> List[Button]:
@@ -468,6 +474,19 @@ class PostFightScreen(Screen):
             self._interact(Slot.on_board(self.board_cursor))
         else:
             self._interact(Slot.on_bench(self.bench_cursor))
+
+    def _placement_targets(self) -> List[chess.Square]:
+        """Every square the held piece may legally be put on.
+
+        Asks `can_swap` once per square rather than restating the rule, so a
+        square that lights up is by construction a square the swap accepts --
+        the deployment zone, the pawn rank, the board cap and the king rule all
+        come along for free, and none of them can drift out of step here.
+        """
+        if self.selection is None or self.phase.step is not Step.SWAP:
+            return []
+        return [square for square in chess.SQUARES
+                if self.phase.can_swap(self.selection, Slot.on_board(square))[0]]
 
     def _interact(self, slot: Slot) -> None:
         self.notice = None
@@ -543,8 +562,8 @@ class PostFightScreen(Screen):
                 self._say("banked — the next payout compounds", theme.GREEN)
         elif button_id == "close-shop":
             self.phase.close_shop()
-        elif button_id == "close-sell":
-            self.phase.close_sell()
+        elif button_id == "close-swap":
+            self.phase.close_swap()
         elif button_id == "finish":
             if self.phase.step is Step.PAYOUT:
                 payout = self.phase.collect_payout()
