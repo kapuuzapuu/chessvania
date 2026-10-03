@@ -95,6 +95,27 @@ substitute for seeing it.
 **Boot animation.** Any key already skips the title sequence; this turns it off
 for good.
 
+## Sound
+
+8-bit effects for moves, captures, purchases and menus — square, triangle and
+noise waves at 22 kHz. **Nothing is shipped as an audio file.** Every sound is
+synthesised from a short table of (pitch, duration) steps in
+[audio/tones.py](chessvania/audio/tones.py), so retuning one means editing a
+line and adding one means adding a key:
+
+```python
+"capture": Blip(((400, 45), (200, 70)), wave=NOISE, decay=0.8),
+```
+
+Sound is on by default and adjustable in **settings**, volume included. It
+degrades to silence rather than failing — no audio backend, no sound device, an
+SSH session with neither: the game plays on and the settings screen says so, so
+the toggle never looks broken.
+
+Playback goes through [playsound3](https://pypi.org/project/playsound3/), which
+picks its own backend per platform (`afplay` on macOS, GStreamer/ALSA/ffplay on
+Linux, `winmm` on Windows).
+
 ## Saving
 
 Two files, with two different lifetimes, in your platform's user-data directory
@@ -272,6 +293,9 @@ chessvania/
 │   ├── postfight.py    payout → shop → sell → swap state machine
 │   ├── progress.py     achievements, unlocks, the bestiary record
 │   └── run.py          RunState and the phase machine
+├── audio/              8-bit sound: a table of blips and a player that never raises
+│   ├── tones.py        the sound set, synthesised -- no files shipped
+│   └── player.py       playback, volume, and degrading to silence
 ├── engine/stockfish.py locates the binary, maps Elo onto the right lever
 ├── persistence/        the only layer that touches a filesystem
 │   ├── paths.py        where saves live; atomic, fault-tolerant JSON

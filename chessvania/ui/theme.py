@@ -7,10 +7,8 @@ Colour never carries meaning alone. Sides are distinguishable by glyph shape --
 one army draws with the outlined chess symbols and the other with the solid
 ones -- so the board stays readable with every colour stripped out.
 
-WHICH army gets which fill is a setting (`Settings.filled_player_pieces`), but
-that the two always differ is not. `piece_glyph` is the only place glyphs come
-from, so the invariant holds everywhere by construction rather than by everyone
-remembering it.
+`piece_glyph` is the only place glyphs come from, so that invariant holds
+everywhere by construction rather than by everyone remembering it.
 """
 
 from __future__ import annotations
@@ -160,34 +158,15 @@ def gold(amount: int) -> str:
 # Piece glyphs
 # --------------------------------------------------------------------------
 #
-# Deliberately module-level state. The fill is a display mode that applies
-# uniformly to every glyph the app draws -- board, bench, shop, loadout,
-# bestiary, game over -- so threading a boolean through ten render call sites
-# would buy nothing over setting it once. `ChessvaniaApp.apply_settings` is the
-# only caller of `set_piece_fill`; tests reset it via an autouse fixture.
-
-_PLAYER_FILLED = False
-
-
-def set_piece_fill(player_filled: bool) -> None:
-    """Choose which army draws with the solid glyphs."""
-    global _PLAYER_FILLED
-    _PLAYER_FILLED = player_filled
-
-
-def player_filled() -> bool:
-    return _PLAYER_FILLED
+# The BOARD draws sprites now (see `ui.piece_art`), so these dress the places a
+# sprite will not fit: the bench, the shop rows, the loadout and bestiary
+# summaries, the inspect panel. White is outlined and Black solid, the printed
+# diagram convention.
 
 
 def piece_glyph(piece_type: int, color: bool = chess.WHITE) -> str:
-    """The glyph for a piece, honouring the fill preference.
-
-    python-chess's `invert_color` swaps a piece's glyph for its opposite number,
-    so applying it to BOTH sides exchanges the two armies' fills rather than
-    making them match. That is what keeps the sides distinguishable without
-    colour whichever way the setting is pointed.
-    """
-    return chess.Piece(piece_type, color).unicode_symbol(invert_color=_PLAYER_FILLED)
+    """The Unicode glyph for a piece."""
+    return chess.Piece(piece_type, color).unicode_symbol()
 
 
 def piece_glyph_for(piece: Piece) -> str:

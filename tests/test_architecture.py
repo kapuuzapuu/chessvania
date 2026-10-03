@@ -60,3 +60,13 @@ def test_the_glossary_is_present():
     """core/__init__ is where a new reader learns the vocabulary."""
     doc = (CORE / "__init__.py").read_text()
     assert "DEPLOYMENT" in doc and "FORMATION" in doc
+
+
+def test_core_does_not_reach_for_the_speakers():
+    """Sound is presentation. `core` must not import it, same as the UI."""
+    offenders = []
+    for path in sorted(CORE.glob("*.py")):
+        for module in imported_modules(path):
+            if "audio" in module.lstrip("."):
+                offenders.append("%s imports %s" % (path.name, module))
+    assert not offenders, "core must not depend on audio: %s" % offenders

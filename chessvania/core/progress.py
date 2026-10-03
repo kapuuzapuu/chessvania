@@ -51,14 +51,20 @@ class Settings:
     therefore fine and deliberately does not invalidate a save.
     """
 
-    filled_player_pieces: bool = False
-    """Draw YOUR army with the solid glyphs and the enemy with the outlined ones.
+    audio: bool = True
+    """Play sound effects.
 
-    Off by default because that is the printed-diagram convention: White is
-    outlined, Black is solid, and most people read the board faster that way.
-    It is a swap, never a one-sided change -- both armies always use opposite
-    fills, so which side a piece belongs to survives with all colour stripped
-    out. See `theme.piece_glyph`.
+    On by default, and harmless when it cannot be honoured: the player degrades
+    to silence on a machine with no audio backend rather than failing. The
+    settings screen reports when that has happened so the toggle does not look
+    broken.
+    """
+
+    volume: int = 70
+    """Playback volume, 0-100.
+
+    Baked into the rendered waveform rather than asked of the backend, because
+    not every backend on every platform can be told to be quieter.
     """
 
     boot_animation: bool = True

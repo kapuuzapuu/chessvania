@@ -19,10 +19,9 @@ from ...core.progress import Profile
 from .. import theme
 
 BANNER = [
-    "  ___ _  _ ___ ___ ___ _   _   _   _  _ ___ _   ",
-    " / __| || | __/ __/ __| \\ / /_\\ | \\| |_ _/ \\  ",
-    "| (__| __ | _|\\__ \\__ \\ V / _ \\| .` || | | |  ",
-    " \\___|_||_|___|___/___/\\_/_/ \\_\\_|\\_|___\\_/  ",
+    " ▄▄▄▄ ▄▄ ▄▄ ▄▄▄▄▄  ▄▄▄▄  ▄▄▄▄ ▄▄ ▄▄  ▄▄▄  ▄▄  ▄▄ ▄▄  ▄▄▄ ",
+    "██▀▀▀ ██▄██ ██▄▄  ███▄▄ ███▄▄ ██▄██ ██▀██ ███▄██ ██ ██▀██",
+    "▀████ ██ ██ ██▄▄▄ ▄▄██▀ ▄▄██▀  ▀█▀  ██▀██ ██ ▀██ ██ ██▀██",
 ]
 
 MARCH = "♜♞♝♛♚♝♞♜"
@@ -198,6 +197,7 @@ class MenuScreen(Screen):
             self.index = (self.index + delta) % len(self.items)
             if self.items[self.index].enabled:
                 break
+        self.app.play_sound("cursor")
         self.redraw()
 
     def action_select(self) -> None:
@@ -207,7 +207,9 @@ class MenuScreen(Screen):
             return
         item = self.items[self.index]
         if not item.enabled:
+            self.app.play_sound("deny")
             return
+        self.app.play_sound("select")
         self.app.menu_choice(item.id)
 
     def action_quit(self) -> None:

@@ -21,6 +21,7 @@ from .core.progress import Achievement, Profile, ProgressEvent, evaluate
 from .core.run import Phase, RunState, new_run
 from .data.enemies import POOLS
 from .data.loadouts import Loadout
+from .audio import Audio
 from .engine import StockfishOpponent
 from .persistence import (
     clear_run,
@@ -225,8 +226,12 @@ class ChessvaniaApp(App):
         self,
         engine: Optional[StockfishOpponent] = None,
         seed: Optional[int] = None,
+        audio: Optional[Audio] = None,
     ) -> None:
         super().__init__()
+        # Injected the same way the engine is, so the suite can pass a silent
+        # player and never make a sound on a developer's machine.
+        self.audio: Audio = audio if audio is not None else Audio()
         self._engine = engine
         self._owns_engine = engine is None
         self.rng = random.Random(seed)
@@ -258,9 +263,12 @@ class ChessvaniaApp(App):
         Called once at startup and again on every change, so a toggle takes
         effect on the screen you toggled it from rather than at the next launch.
         """
-        from .ui import theme
+        settings = self.profile.settings
+        self.audio.configure(settings.audio, settings.volume)
 
-        theme.set_piece_fill(self.profile.settings.filled_player_pieces)
+    def play_sound(self, name: str) -> None:
+        """Fire a sound by name. Never raises, never blocks -- see `audio`."""
+        self.audio.play(name)
 
     def save_settings(self) -> bool:
         """Persist immediately -- the settings screen has no confirm step."""

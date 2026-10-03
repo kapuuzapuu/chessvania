@@ -14,15 +14,15 @@ def isolated_saves(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def default_piece_fill():
-    """Reset the glyph fill around every test.
+def silent_audio(monkeypatch):
+    """No test ever makes a sound.
 
-    `theme` holds the fill as module state, which is the right call for a
-    display mode that applies to the whole app but does mean one test could
-    otherwise leak its preference into the next one.
+    Autouse and unconditional for the same reason as the save directory: a
+    suite that chirps on every simulated keypress is unusable, and a CI box has
+    no audio device to chirp with anyway. Removing the backend exercises the
+    same path a machine without one takes, so the degrade-to-silence promise is
+    under test on every run rather than only on the machines that lack sound.
     """
-    from chessvania.ui import theme
+    from chessvania.audio import player
 
-    theme.set_piece_fill(False)
-    yield
-    theme.set_piece_fill(False)
+    monkeypatch.setattr(player, "_playsound", None)

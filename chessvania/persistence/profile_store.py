@@ -24,9 +24,8 @@ def _read_settings(payload: Dict[str, Any]) -> Settings:
 
     defaults = Settings()
     return Settings(
-        filled_player_pieces=bool(
-            raw.get("filled_player_pieces", defaults.filled_player_pieces)
-        ),
+        audio=bool(raw.get("audio", defaults.audio)),
+        volume=max(0, min(100, int(raw.get("volume", defaults.volume)))),
         boot_animation=bool(raw.get("boot_animation", defaults.boot_animation)),
     )
 
@@ -62,7 +61,8 @@ def save_profile(profile: Profile) -> bool:
             "runs_won": profile.runs_won,
             "highest_stake": profile.highest_stake,
             "settings": {
-                "filled_player_pieces": profile.settings.filled_player_pieces,
+                "audio": profile.settings.audio,
+                "volume": profile.settings.volume,
                 "boot_animation": profile.settings.boot_animation,
             },
         },

@@ -329,14 +329,14 @@ class PostFightScreen(Screen):
     def _sell_section(self) -> Text:
         step = self.phase.step
         active = step is Step.SELL
-        past = step in (Step.SWAP, Step.DONE)
+        past = step is Step.DONE
 
         if past:
             right = Text("✓", style=theme.GREEN)
         elif active:
             right = Text("%s %d" % (config.GOLD_GLYPH, self.run.gold), style=theme.GOLD)
         else:
-            right = Text("close shop first", style=theme.GHOST)
+            right = Text("after swapping", style=theme.GHOST)
         text = self._header("SELL", right, active)
 
         if past:
@@ -355,7 +355,7 @@ class PostFightScreen(Screen):
 
         if active:
             right = Text("%d left" % self.phase.swaps_left, style=theme.GREEN)
-        elif step is Step.DONE:
+        elif step in (Step.SELL, Step.DONE):
             right = Text("✓", style=theme.GREEN)
         else:
             right = Text("locked", style=theme.GHOST)
@@ -551,6 +551,7 @@ class PostFightScreen(Screen):
         if button_id.startswith("buy-"):
             index = int(button_id.split("-")[1])
             ok, reason = self.phase.buy(index)
+            self.app.play_sound("buy" if ok else "deny")
             if not ok:
                 self._say(reason, theme.RED)
             else:
@@ -581,12 +582,14 @@ class PostFightScreen(Screen):
     def _sell(self, index: int) -> None:
         inventory = self.run.army.inventory
         if index >= len(inventory):
+            self.app.play_sound("deny")
             self._say("no piece in that slot", theme.GHOST)
             self.refresh_all()
             return
         piece = inventory[index]
         value = sell_value(piece.piece_type)
         ok, reason = self.phase.sell(index)
+        self.app.play_sound("sell" if ok else "deny")
         self._say(
             "sold %s for %s%d" % (piece.name.lower(), config.GOLD_GLYPH, value)
             if ok else reason,
@@ -613,6 +616,7 @@ class PostFightScreen(Screen):
         """
         if self.phase.swaps_left <= 0:
             self.selection = None
+            self.app.play_sound("deny")
             self._say("no swaps left — finish the phase", theme.RED)
             self.refresh_all()
             return
@@ -623,6 +627,7 @@ class PostFightScreen(Screen):
                 self.refresh_all()
                 return
             self.selection = slot
+            self.app.play_sound("pickup")
             self.refresh_all()
             return
 
@@ -633,6 +638,7 @@ class PostFightScreen(Screen):
 
         ok, reason = self.phase.swap(self.selection, slot)
         self.selection = None
+        self.app.play_sound("select" if ok else "deny")
         self._say(
             "swapped · %d left" % self.phase.swaps_left if ok else reason,
             theme.GREEN if ok else theme.RED,

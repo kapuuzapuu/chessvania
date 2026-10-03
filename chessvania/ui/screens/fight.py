@@ -588,8 +588,10 @@ class FightScreen(Screen):
             if self.fight.moves_from(square):
                 self.selected = square
                 self.notice = None
+                self.app.play_sound("pickup")
                 self.refresh_all()
             else:
+                self.app.play_sound("deny")
                 self.set_status("that piece has no legal moves", theme.RED)
             return
         self.selected = None
@@ -724,6 +726,9 @@ class FightScreen(Screen):
         self.selected = None
         self.cursor = target
         self.notice = None
+        self.app.play_sound("capture" if capture else "move")
+        if self.fight.board.is_check():
+            self.app.play_sound("check")
         if capture:
             self.query_one("#board", BoardView).flash(target)
         self.refresh_all()
@@ -767,8 +772,13 @@ class FightScreen(Screen):
         self.notice = None
         self.refresh_all()
 
+        if self.fight.board.is_check() and not self.fight.finished:
+            self.app.play_sound("check")
+
         lost = self.fight.tracker.captured[losses_before:]
         if lost:
+            # A permanent loss, not a trade: this one gets its own sound.
+            self.app.play_sound("lost")
             piece = self._by_id.get(lost[-1])
             if piece is not None:
                 self.set_status(
@@ -785,6 +795,7 @@ class FightScreen(Screen):
     def _finish(self) -> None:
         casualties = self.fight.apply_to_army()
         won = self.fight.outcome is Outcome.PLAYER_WIN
+        self.app.play_sound("win" if won else "defeat")
         self.set_status(self._outcome_message(won), theme.GOLD if won else theme.RED)
         # Let the final position sit for a beat before the screen changes.
         self.set_timer(

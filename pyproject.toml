@@ -13,6 +13,7 @@ dependencies = [
     "chess>=1.11",
     "textual>=0.80",
     "platformdirs>=3.6",  # locating the save directory
+    "playsound3>=3.2",    # cross-platform audio; pure Python, picks its own backend
 ]
 
 [project.optional-dependencies]

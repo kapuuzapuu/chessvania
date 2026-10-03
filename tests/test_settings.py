@@ -1,7 +1,8 @@
-"""Player settings: the two toggles, how they persist, and what they must not break."""
+"""Player settings: the rows, how they persist, and what they must not break."""
 
 import asyncio
 import json
+import pathlib
 
 import chess
 
@@ -11,7 +12,7 @@ from chessvania.persistence import load_profile, save_profile
 from chessvania.persistence.paths import profile_path
 from chessvania.ui import theme
 from chessvania.ui.screens.menu import MenuScreen
-from chessvania.ui.screens.settings import TOGGLES, SettingsScreen
+from chessvania.ui.screens.settings import ROWS, SettingsScreen
 
 from chessvania.ui.layout import minimum_terminal
 
@@ -42,75 +43,37 @@ async def settled_menu(pilot, app):
 # -- defaults ------------------------------------------------------------
 
 
-def test_the_defaults_are_the_printed_diagram_convention():
+def test_the_defaults():
     settings = Settings()
-    assert settings.filled_player_pieces is False
+    assert settings.audio is True
+    assert settings.volume == 70
     assert settings.boot_animation is True
 
 
 # -- glyphs --------------------------------------------------------------
 
 
-def test_filling_your_pieces_swaps_both_sides_rather_than_one():
-    """The two armies must never end up sharing a fill."""
-    theme.set_piece_fill(False)
-    assert theme.piece_glyph(chess.QUEEN, chess.WHITE) == "♕"  # outlined
-    assert theme.piece_glyph(chess.QUEEN, chess.BLACK) == "♛"  # solid
+def test_the_two_sides_stay_distinguishable_without_colour():
+    """The board draws sprites, but the bench and shop still use glyphs.
 
-    theme.set_piece_fill(True)
-    assert theme.piece_glyph(chess.QUEEN, chess.WHITE) == "♛"
-    assert theme.piece_glyph(chess.QUEEN, chess.BLACK) == "♕"
-
-
-def test_the_sides_stay_distinguishable_without_colour_either_way():
-    """The accessibility promise in theme.py's docstring, enforced.
-
-    Colour is allowed to reinforce which army a piece belongs to; it is never
-    allowed to be the only thing carrying it.
+    They are the last place a side is told apart by shape rather than tint, so
+    the outlined/solid split has to survive there.
     """
-    for filled in (False, True):
-        theme.set_piece_fill(filled)
-        for piece_type in chess.PIECE_TYPES:
-            mine = theme.piece_glyph(piece_type, chess.WHITE)
-            theirs = theme.piece_glyph(piece_type, chess.BLACK)
-            assert mine != theirs, "fill=%s type=%s" % (filled, piece_type)
+    for piece_type in (chess.PAWN, chess.KNIGHT, chess.BISHOP,
+                       chess.ROOK, chess.QUEEN, chess.KING):
+        yours = theme.piece_glyph(piece_type, chess.WHITE)
+        theirs = theme.piece_glyph(piece_type, chess.BLACK)
+        assert yours != theirs, "piece %d looks the same for both sides" % piece_type
 
 
 def test_core_does_not_decide_how_a_piece_is_drawn():
-    """Glyph choice is a preference, so it belongs to the UI layer alone."""
-    from chessvania.core.army import Piece
-    from chessvania.core.postfight import StockItem
+    """Glyph choice is presentation; `core` returns piece types, not symbols."""
+    import chessvania.core.army as army_module
+    import chessvania.core.postfight as postfight_module
 
-    assert not hasattr(Piece(chess.ROOK), "symbol")
-    assert not hasattr(StockItem(piece_type=chess.ROOK, price=5), "symbol")
-
-
-def test_the_receipt_groups_by_piece_type_not_by_glyph():
-    """Core hands the UI data; the UI decides what it looks like."""
-    import random
-
-    from chessvania.core.army import army_from_fen
-    from chessvania.core.ladder import build_ladder
-    from chessvania.core.postfight import PostFight
-    from chessvania.core.run import new_run
-    from chessvania.data.enemies import POOLS
-    from chessvania import config
-
-    army = army_from_fen("8/8/8/8/8/8/PPPPPPPP/RN2KN1R w - - 0 1")
-    ladder = build_ladder(POOLS, config.STAKES[0], random.Random(0))
-    run = new_run(army, ladder, config.STAKES[0])
-    run.gold = 99
-
-    phase = PostFight(run, 5, [])
-    phase.collect_payout()
-    pawn = next(i for i, item in enumerate(phase.stock)
-                if item.piece_type == chess.PAWN)
-    for _ in range(3):
-        phase.buy(pawn)
-
-    counts = phase.purchase_counts()
-    assert list(counts) == [chess.PAWN], "keys should be piece types, not glyphs"
-    assert list(counts.values()) == [3]
+    for module in (army_module, postfight_module):
+        assert "unicode_symbol" not in pathlib.Path(module.__file__).read_text(), (
+            "%s is choosing a glyph" % module.__name__)
 
 
 # -- persistence ---------------------------------------------------------
@@ -118,12 +81,14 @@ def test_the_receipt_groups_by_piece_type_not_by_glyph():
 
 def test_settings_survive_a_save_and_load():
     profile = Profile()
-    profile.settings.filled_player_pieces = True
+    profile.settings.audio = False
+    profile.settings.volume = 30
     profile.settings.boot_animation = False
     save_profile(profile)
 
     restored = load_profile()
-    assert restored.settings.filled_player_pieces is True
+    assert restored.settings.audio is False
+    assert restored.settings.volume == 30
     assert restored.settings.boot_animation is False
 
 
@@ -169,7 +134,7 @@ def test_unknown_settings_keys_are_ignored():
 
     restored = load_profile()
     assert restored.settings.boot_animation is False
-    assert restored.settings.filled_player_pieces is False
+    assert restored.settings.audio is True
 
 
 # -- the screen ----------------------------------------------------------
@@ -202,15 +167,44 @@ def test_toggling_applies_immediately_and_writes_to_disk():
             await pilot.pause()
 
             screen = app.screen
-            screen.index = [t.id for t in TOGGLES].index("pieces")
+            screen.index = [r.id for r in ROWS].index("audio")
             await pilot.press("enter")
             await pilot.pause()
 
-            # applied to the live presentation layer...
-            assert app.profile.settings.filled_player_pieces is True
-            assert theme.player_filled() is True
-            # ...and persisted without a confirm step
-            assert load_profile().settings.filled_player_pieces is True
+            assert app.profile.settings.audio is False
+            assert app.audio.enabled is False, "the change did not reach the player"
+            assert load_profile().settings.audio is False, "not written to disk"
+
+    drive(scenario)
+
+
+def test_volume_steps_and_clamps():
+    async def scenario():
+        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
+            menu = await settled_menu(pilot, app)
+            menu.index = [i.id for i in menu.items].index("settings")
+            await pilot.press("enter")
+            await pilot.pause()
+
+            screen = app.screen
+            screen.index = [r.id for r in ROWS].index("volume")
+            start = app.profile.settings.volume
+
+            await pilot.press("right")
+            await pilot.pause()
+            assert app.profile.settings.volume > start
+            assert app.audio.volume == app.profile.settings.volume
+
+            for _ in range(20):            # walk it off the top
+                await pilot.press("right")
+            await pilot.pause()
+            assert app.profile.settings.volume == 100
+
+            for _ in range(20):            # and off the bottom
+                await pilot.press("left")
+            await pilot.pause()
+            assert app.profile.settings.volume == 0
 
     drive(scenario)
 
@@ -245,13 +239,15 @@ def test_the_animation_still_plays_when_it_is_left_on():
 def test_the_saved_preference_is_applied_at_startup():
     async def scenario():
         profile = Profile()
-        profile.settings.filled_player_pieces = True
+        profile.settings.audio = False
+        profile.settings.volume = 20
         save_profile(profile)
 
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
         async with app.run_test(size=MIN_TERMINAL) as pilot:
             await pilot.pause()
-            assert theme.player_filled() is True
+            assert app.audio.enabled is False
+            assert app.audio.volume == 20
 
     drive(scenario)
 
