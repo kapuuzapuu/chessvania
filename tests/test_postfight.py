@@ -268,7 +268,8 @@ def test_a_full_board_cannot_take_a_deployment():
     run = make_run(army=army)
     phase = at_swap(run)
 
-    ok, reason = phase.swap(Slot.on_bench(0), Slot.on_board(chess.E4))
+    # a3 is inside the deployment zone, so the board cap is what refuses it
+    ok, reason = phase.swap(Slot.on_bench(0), Slot.on_board(chess.A3))
     assert not ok and "16" in reason
 
 
@@ -296,7 +297,28 @@ def test_nothing_may_be_deployed_past_the_third_rank():
     for square in (chess.A4, chess.D5, chess.H8):
         ok, reason = phase.swap(Slot.on_board(chess.A2), Slot.on_board(square))
         assert not ok, "%s should be out of the deployment zone" % chess.square_name(square)
-        assert "ranks 1-3" in reason
+        assert "ranks 2-3" in reason, reason          # a2 holds a pawn
+
+
+def test_the_refusal_names_the_zone_that_applies_to_the_piece():
+    """A pawn told "ranks 1-3" then refused rank 1 learns one rule twice."""
+    army = army_from_fen(SHIELD)
+    army.add_to_inventory(Piece(chess.ROOK))
+    run = make_run(army=army)
+    phase = at_swap(run)
+
+    _, pawn_reason = phase.swap(Slot.on_board(chess.A2), Slot.on_board(chess.A5))
+    assert pawn_reason == "pawns deploy on ranks 2-3"
+
+    _, rook_reason = phase.swap(Slot.on_bench(0), Slot.on_board(chess.A5))
+    assert rook_reason == "you deploy on ranks 1-3"
+
+
+def test_the_refusal_does_not_repeat_the_square_you_clicked():
+    run = make_run()
+    phase = at_swap(run)
+    _, reason = phase.swap(Slot.on_board(chess.A2), Slot.on_board(chess.A5))
+    assert "a5" not in reason.lower()
 
 
 def test_the_third_rank_is_reachable():

@@ -362,7 +362,9 @@ class PostFightScreen(Screen):
         text = self._header("SWAP", right, active)
 
         if active:
-            if self.selection is not None:
+            if self.phase.swaps_left <= 0:
+                text.append("  budget spent\n", style=theme.GHOST)
+            elif self.selection is not None:
                 text.append("  lit squares are legal\n", style=theme.GREEN)
             else:
                 text.append("  board ↔ bench, or move\n", style=theme.DIM)
@@ -603,7 +605,18 @@ class PostFightScreen(Screen):
         self._interact(Slot.on_board(event.square))
 
     def _pick(self, slot: Slot) -> None:
-        """First press selects an occupied slot; the second is the destination."""
+        """First press selects an occupied slot; the second is the destination.
+
+        Spent budget refuses at the first press rather than the second. Letting
+        a piece light up and the rail announce "lit squares are legal" when
+        nothing can actually move is a promise the phase cannot keep.
+        """
+        if self.phase.swaps_left <= 0:
+            self.selection = None
+            self._say("no swaps left — finish the phase", theme.RED)
+            self.refresh_all()
+            return
+
         if self.selection is None:
             if not self._occupied(slot):
                 self._say("pick a piece first", theme.GHOST)

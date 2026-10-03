@@ -492,7 +492,6 @@ def test_swap_step_exposes_board_and_bench_to_the_keyboard():
             post = app.screen
             post.phase.collect_payout()
             post.phase.close_shop()
-            post.phase.close_sell()
             post.refresh_all()
             await pilot.pause()
             assert post.phase.step is Step.SWAP
@@ -638,5 +637,36 @@ def test_losing_routes_to_defeat():
 
             assert isinstance(app.screen, GameOverScreen)
             assert app.screen.won is False
+
+    drive(scenario)
+
+
+def test_a_spent_swap_budget_refuses_at_the_first_press():
+    """No lit squares, no "legal" copy -- nothing that implies a swap is coming."""
+
+    async def scenario():
+        from chessvania.core.postfight import Slot
+
+        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
+            screen = await start_fight(pilot, app)
+            app.finish_fight(app.run_state, screen.fight, [], won=True)
+            await pilot.pause()
+
+            post = app.screen
+            post.phase.collect_payout()
+            post.phase.close_shop()
+            assert post.phase.step is Step.SWAP
+            post.phase.swaps_used = config.MAX_SWAPS      # budget spent
+            post.refresh_all()
+            await pilot.pause()
+
+            post._pick(Slot.on_board(chess.A2))
+            await pilot.pause()
+
+            assert post.selection is None, "a piece was picked up with no swaps left"
+            board = post.query_one("#board", BoardView)
+            assert not board.targets, "squares lit with no swaps left"
+            assert "legal" not in post._swap_section().plain
 
     drive(scenario)

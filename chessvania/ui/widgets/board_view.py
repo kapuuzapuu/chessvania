@@ -201,7 +201,8 @@ class BoardView(Static):
         is_target = square in self.targets
         threat = self.threats.get(square)
 
-        background = theme.SQ_LIGHT if (file + rank) % 2 else theme.SQ_DARK
+        light = (file + rank) % 2
+        background = theme.SQ_LIGHT if light else theme.SQ_DARK
         if self.last_move is not None and square in (
             self.last_move.from_square,
             self.last_move.to_square,
@@ -214,13 +215,14 @@ class BoardView(Static):
         if is_target:
             # Captures read red, quiet moves green -- the cost is visible before
             # you commit to the move. A swap-phase target is never a capture.
-            background = (theme.SQ_CAPTURE
-                          if piece is not None and self.targets_are_captures
-                          else theme.SQ_TARGET)
+            if piece is not None and self.targets_are_captures:
+                background = theme.SQ_CAPTURE_LIGHT if light else theme.SQ_CAPTURE_DARK
+            else:
+                background = theme.SQ_TARGET_LIGHT if light else theme.SQ_TARGET_DARK
         if square == self.selected:
             background = theme.SQ_SELECT
         if square == self.flash_square:
-            background = theme.SQ_CAPTURE
+            background = theme.SQ_CAPTURE_LIGHT if light else theme.SQ_CAPTURE_DARK
 
         if piece is None:
             # Even-height cells have no middle row, so they use a half block

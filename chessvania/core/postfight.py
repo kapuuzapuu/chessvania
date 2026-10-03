@@ -19,6 +19,7 @@ import chess
 
 from .. import config
 from .army import Army, Piece
+from .legality import placement_error
 from .economy import Payout, buyable_types, price_of, sell_value
 from .run import RunState
 
@@ -224,6 +225,20 @@ class PostFight:
         for slot in (a, b):
             if not slot.is_board and not 0 <= slot.index < config.INVENTORY_CAP:
                 return False, "no such bench slot"
+        # Check the placement of each moved piece directly, before falling back
+        # to the army-wide audit. `violations` prefixes its messages with the
+        # offending square -- useful when listing an army's problems, pure noise
+        # when you just clicked that square yourself.
+        for origin, target in ((a, b), (b, a)):
+            if not target.is_board:
+                continue
+            piece = _read(self.run.army, self._padded_bench(), origin)
+            if piece is None:
+                continue
+            why = placement_error(piece.piece_type, target.index)
+            if why is not None:
+                return False, why
+
         candidate = self.run.army.copy()
         ok, reason = _apply_swap(candidate, a, b)
         if not ok:
@@ -232,6 +247,12 @@ class PostFight:
         if problems:
             return False, problems[0]
         return True, ""
+
+    def _padded_bench(self) -> List[Optional[Piece]]:
+        """The bench padded to its cap, so empty slots are addressable."""
+        bench: List[Optional[Piece]] = list(self.run.army.inventory)
+        bench += [None] * (config.INVENTORY_CAP - len(bench))
+        return bench
 
     def swap(self, a: Slot, b: Slot) -> Tuple[bool, str]:
         ok, reason = self.can_swap(a, b)

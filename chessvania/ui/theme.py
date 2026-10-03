@@ -32,9 +32,23 @@ BORDER_SOFT = "#23262e"
 SQ_LIGHT = "#262a33"
 SQ_DARK = "#161920"
 SQ_MOVE = "#3a3320"
-SQ_CAPTURE = "#4a2420"
+SQ_CAPTURE_DARK = "#44211d"
+SQ_CAPTURE_LIGHT = "#573029"
+"""Same split for capture squares -- see `SQ_TARGET_DARK`."""
+
+SQ_CAPTURE = SQ_CAPTURE_DARK
 SQ_SELECT = "#2b3a34"
-SQ_TARGET = "#22322c"
+SQ_TARGET_DARK = "#1e2d27"
+SQ_TARGET_LIGHT = "#2c4138"
+"""Two shades, matching the two square colours underneath.
+
+A single tint flattens the board the moment a piece is picked up: the
+checkerboard is how you read ranks and files, and it should survive being
+highlighted. These keep the same light/dark step the plain squares have.
+"""
+
+SQ_TARGET = SQ_TARGET_DARK
+"""The bench has no checkerboard to match, so it takes the darker one."""
 SQ_CURSOR = "#3d4a63"
 """Cursor tint, used only at the sizes that draw block art.
 

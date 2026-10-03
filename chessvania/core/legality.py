@@ -53,9 +53,13 @@ def placement_error(piece_type: int, square: chess.Square) -> Optional[str]:
     """
     rank = chess.square_rank(square)
     if rank >= config.DEPLOYMENT_RANKS:
+        # Name the zone THIS piece actually has. Telling a pawn "ranks 1-3" and
+        # then refusing rank 1 is two trips to learn one rule.
+        if piece_type == chess.PAWN:
+            return "pawns deploy on ranks 2-%d" % config.DEPLOYMENT_RANKS
         return "you deploy on ranks 1-%d" % config.DEPLOYMENT_RANKS
     if piece_type == chess.PAWN and rank in (0, 7):
-        return "a pawn cannot sit on rank %d" % (rank + 1)
+        return "pawns deploy on ranks 2-%d" % config.DEPLOYMENT_RANKS
     return None
 
 
