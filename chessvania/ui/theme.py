@@ -32,19 +32,29 @@ BORDER_SOFT = "#23262e"
 SQ_LIGHT = "#262a33"
 SQ_DARK = "#161920"
 SQ_MOVE = "#3a3320"
-SQ_CAPTURE_DARK = "#44211d"
-SQ_CAPTURE_LIGHT = "#573029"
+SQ_CAPTURE_DARK = "#552924"
+SQ_CAPTURE_LIGHT = "#62362e"
 """Same split for capture squares -- see `SQ_TARGET_DARK`."""
 
 SQ_CAPTURE = SQ_CAPTURE_DARK
 SQ_SELECT = "#2b3a34"
-SQ_TARGET_DARK = "#1e2d27"
-SQ_TARGET_LIGHT = "#2c4138"
+SQ_TARGET_DARK = "#293d35"
+SQ_TARGET_LIGHT = "#324a40"
 """Two shades, matching the two square colours underneath.
 
 A single tint flattens the board the moment a piece is picked up: the
 checkerboard is how you read ranks and files, and it should survive being
-highlighted. These keep the same light/dark step the plain squares have.
+highlighted.
+
+BOTH SHADES SIT ABOVE A PLAIN LIGHT SQUARE, which is the constraint that
+matters and the one the first attempt missed -- its dark variant was actually
+dimmer than an unlit light square, so a highlighted dark square and a plain
+light one read the same. The darker of the pair now clears a plain light
+square by about a tenth of the brightness range.
+
+The step BETWEEN the two is deliberately smaller than the checkerboard's own,
+so they read as one highlight in two tones rather than as two different
+states.
 """
 
 SQ_TARGET = SQ_TARGET_DARK
