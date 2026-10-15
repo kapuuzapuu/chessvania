@@ -1,11 +1,23 @@
-"""The post-fight phase machine: payout -> shop -> sell -> swap.
+"""The post-fight phase machine: payout, then one open management step.
 
-The ordering is deliberate and enforced here rather than in the UI. Selling is
-locked until the shop closes, so sale gold can never fund the purchase you are
-standing in front of -- it always arrives for the *next* shop.
+Buying, selling and swapping all happen at once. They used to be three gated
+steps, which forced an order on decisions that are genuinely simultaneous --
+you cannot know which pieces are spare until you know which you are fielding,
+and you cannot know what to field until you know what you can afford.
 
-Purchases land on the bench, never straight onto the board. Deploying costs a
-swap, which is what gives the three-swap budget teeth.
+Two rules survive from the gated version and carry the balance:
+
+  PURCHASES LAND ON THE BENCH, never straight onto the board. Deploying one
+  costs a swap, which is what gives the three-swap budget teeth.
+
+  SELLING IS BENCH-ONLY. Cashing out a deployed piece means recalling it
+  first, and that costs a swap -- so "deploy everything, sell the survivors"
+  is not free.
+
+A SWAP is any rearrangement of your own army: bench to board, board to bench,
+square to square. `_apply_swap` really does exchange two slots, so the word is
+accurate rather than decorative, and the budget counts exactly those. Buying
+and selling are dealings with the market and cost no swaps.
 """
 
 from __future__ import annotations
@@ -26,18 +38,12 @@ from .run import RunState
 
 class Step(Enum):
     PAYOUT = "payout"
-    SHOP = "shop"
-    SWAP = "swap"
-    SELL = "sell"
+    MANAGE = "manage"
     DONE = "done"
 
 
-STEP_ORDER = (Step.PAYOUT, Step.SHOP, Step.SWAP, Step.SELL, Step.DONE)
-"""Buy, then field what you bought, then sell what is left over.
-
-Selling last is what makes the bench legible: you cannot know which pieces are
-spare until you have decided which ones you are deploying. The earlier order --
-sell before swap -- asked you to price pieces you had not finished using."""
+STEP_ORDER = (Step.PAYOUT, Step.MANAGE, Step.DONE)
+"""Collect, then manage, then fight. The middle step holds everything."""
 
 
 @dataclass(frozen=True)
@@ -86,7 +92,7 @@ def catalogue() -> List[StockItem]:
 
 
 class PostFight:
-    """Drives one post-fight phase. All four steps, in order, once each."""
+    """Drives one post-fight phase: collect the payout, then manage the army."""
 
     def __init__(
         self,
@@ -111,18 +117,20 @@ class PostFight:
         if self.step is not Step.PAYOUT:
             return self.payout
         self.run.collect(self.payout)
-        self.step = Step.SHOP
+        self.step = Step.MANAGE
         return self.payout
 
-    # -- step 2: shop ----------------------------------------------------
+    # -- the market: buying ----------------------------------------------
 
     @property
     def gold(self) -> int:
         return self.run.gold
 
     def can_buy(self, index: int) -> Tuple[bool, str]:
-        if self.step is not Step.SHOP:
+        if self.step is not Step.MANAGE:
             return False, "the shop is closed"
+        if self.skipped:
+            return False, "you skipped the shop this round"
         if not 0 <= index < len(self.stock):
             return False, "no such item"
         item = self.stock[index]
@@ -157,8 +165,13 @@ class PostFight:
 
     @property
     def can_skip(self) -> bool:
-        """Skipping only compounds if you have not spent a thing."""
-        return self.step is Step.SHOP and self.gold_spent == 0
+        """Skipping only compounds if you have not spent a thing.
+
+        Scoped to the shop rather than the phase: walking away from the market
+        is the thing being rewarded, so selling and swapping leave it intact."""
+        return (self.step is Step.MANAGE
+                and not self.skipped
+                and self.gold_spent == 0)
 
     def skip_preview(self) -> Tuple[int, int]:
         """(gold kept, bonus added to the next payout) -- shown on the button.
@@ -173,18 +186,13 @@ class PostFight:
             return False, "you have already spent gold this visit"
         self.run.bank_skip_bonus()
         self.skipped = True
-        self.step = Step.SWAP
         return True, ""
 
-    def close_shop(self) -> None:
-        if self.step is Step.SHOP:
-            self.step = Step.SWAP
-
-    # -- step 4: sell ----------------------------------------------------
+    # -- the market: selling -----------------------------------------------
 
     def can_sell(self, bench_index: int) -> Tuple[bool, str]:
-        if self.step is not Step.SELL:
-            return False, "selling opens once you have finished swapping"
+        if self.step is not Step.MANAGE:
+            return False, "the phase is over"
         if not 0 <= bench_index < len(self.run.army.inventory):
             return False, "no piece in that slot"
         return True, ""
@@ -200,24 +208,15 @@ class PostFight:
         self.sold_count += 1
         return True, ""
 
-    def close_sell(self) -> None:
-        """Sell is the last step, so closing it ends the phase."""
-        if self.step is Step.SELL:
-            self.finish()
-
-    def close_swap(self) -> None:
-        if self.step is Step.SWAP:
-            self.step = Step.SELL
-
-    # -- step 3: swap ----------------------------------------------------
+    # -- your army: swapping -----------------------------------------------
 
     @property
     def swaps_left(self) -> int:
         return max(0, config.MAX_SWAPS - self.swaps_used)
 
     def can_swap(self, a: Slot, b: Slot) -> Tuple[bool, str]:
-        if self.step is not Step.SWAP:
-            return False, "swapping opens once the shop closes"
+        if self.step is not Step.MANAGE:
+            return False, "the phase is over"
         if self.swaps_left <= 0:
             return False, "no swaps left"
         if a == b:

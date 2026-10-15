@@ -63,6 +63,7 @@ class PostFightScreen(Screen):
         ("f2", "dev_gold", "Dev gold"),
         ("f3", "dev_skip", "Dev skip phase"),
         ("f5", "dev_swaps", "Dev refill swaps"),
+        ("s", "sell", "Sell"),
     ]
 
     def __init__(self, run: RunState, phase: PostFight) -> None:
@@ -84,19 +85,18 @@ class PostFightScreen(Screen):
             with Vertical(id="left"):
                 yield Static(id="bench-label")
                 yield BenchView(id="bench")
-                yield Static(id="bench-note")
+                yield Static(id="actions", classes="panel")
             with Vertical(id="center"):
                 yield BoardView(id="board")
                 yield Static(id="status")
             with VerticalScroll(id="right"):
-                yield Static(id="rail", classes="panel")
+                yield Static(id="market", classes="panel")
                 with Vertical(id="controls", classes="panel"):
                     for index in range(len(catalogue())):
                         yield Button("", id="buy-%d" % index, classes="shop-button")
                     yield Button("", id="skip")
-                    yield Button("done shopping", id="close-shop")
-                    yield Button("done swapping", id="close-swap")
                     yield Button("finish", id="finish")
+                yield Static(id="receipt", classes="panel")
         yield DevBar(id="devbar")
 
     def on_mount(self) -> None:
@@ -147,25 +147,24 @@ class PostFightScreen(Screen):
         label.append("/%d" % config.INVENTORY_CAP, style=theme.GHOST)
         self.query_one("#bench-label", Static).update(label)
 
-        note = Text()
-        if self.phase.step is Step.SWAP:
-            note.append("swaps left ", style=theme.FAINT)
-            note.append("%d" % self.phase.swaps_left, style=theme.GREEN)
-            note.append("\npick a piece,\nthen a target", style=theme.GHOST)
-        elif self.phase.step is Step.SELL:
-            note.append("click a piece\nto sell it", style=theme.FAINT)
-        else:
-            note.append("bench reserves", style=theme.FAINT)
-        self.query_one("#bench-note", Static).update(note)
+        actions = self.query_one("#actions", Static)
+        strip = self._action_strip()
+        actions.update(strip)
+        actions.styles.height = strip.plain.count("\n") + 3
 
-        rail = self.query_one("#rail", Static)
-        rail_text = self._rail()
-        rail.update(rail_text)
+        market = self.query_one("#market", Static)
+        market_text = self._market()
+        market.update(market_text)
         # Auto-height mis-measures this panel: it is sized on a layout pass that
         # runs before its width is known, so it reserves room for wrapping that
         # never happens and shoves the buttons off the bottom. We know exactly
         # how many lines we just rendered, so pin it.
-        rail.styles.height = rail_text.plain.count("\n") + 3  # lines + border
+        market.styles.height = market_text.plain.count("\n") + 3
+
+        receipt = self.query_one("#receipt", Static)
+        receipt_text = self._receipt()
+        receipt.update(receipt_text)
+        receipt.styles.height = receipt_text.plain.count("\n") + 3
 
         self._sync_controls()
         self._apply_control_focus()
@@ -206,180 +205,146 @@ class PostFightScreen(Screen):
             text.append("enter", style=theme.GREEN)
             text.append(" pick up or place", style=theme.DIM)
         else:
-            verb = "sell" if self.phase.step is Step.SELL else "pick up or place"
             text.append("bench · ", style=theme.DIM)
             text.append("enter", style=theme.GREEN)
-            text.append(" %s" % verb, style=theme.DIM)
+            text.append(" pick up · ", style=theme.DIM)
+            text.append("s", style=theme.GREEN)
+            text.append(" sell", style=theme.DIM)
         if len(zones) > 1:
             text.append(" · ", style=theme.GHOST)
             text.append("tab", style=theme.GREEN)
             text.append(" switch pane", style=theme.DIM)
         return text
 
+    def _action_strip(self) -> Text:
+        """The verbs available for whatever is in your hand, where your hand is.
+
+        A legend rather than a menu: deploying still costs exactly one keypress
+        on the board, and this only tells you what else that piece could do.
+        Selling is bench-only, so a board piece is never offered it.
+        """
+        text = Text()
+        if self.phase.step is not Step.MANAGE:
+            text.append("bench reserves", style=theme.FAINT)
+            return text
+
+        held = self.selection
+        if held is None:
+            text.append("pick a piece\n", style=theme.FAINT)
+            text.append("enter", style=theme.GREEN)
+            text.append(" to lift it", style=theme.GHOST)
+            return text
+
+        piece = self._piece_at(held)
+        if piece is None:
+            return text
+        text.append("holding %s %s\n"
+                    % (theme.piece_glyph_for(piece), piece.name.lower()),
+                    style=theme.SEASONED)
+
+        text.append("enter", style=theme.GREEN)
+        text.append("  %s\n" % self._swap_label(), style=theme.DIM)
+
+        if not held.is_board:
+            text.append("s", style=theme.GREEN)
+            text.append("      sell ", style=theme.DIM)
+            text.append("+%s%d\n" % (config.GOLD_GLYPH,
+                                      sell_value(piece.piece_type)),
+                        style=theme.GOLD)
+        text.append("esc", style=theme.GREEN)
+        text.append("    put back", style=theme.GHOST)
+        return text
+
+    def _swap_label(self) -> str:
+        """What enter would do from here -- the sentence finishes at the cursor."""
+        if self.zone is Zone.BENCH:
+            return "swap to bench"
+        if self.zone is not Zone.BOARD:
+            return "swap to board"
+        occupant = self.run.army.deployment.get(self.board_cursor)
+        where = chess.square_name(self.board_cursor)
+        if occupant is not None:
+            return "swap with %s %s" % (theme.piece_glyph_for(occupant), where)
+        return "swap to %s" % where
+
+    def _piece_at(self, slot: Slot):
+        if slot.is_board:
+            return self.run.army.deployment.get(slot.index)
+        inventory = self.run.army.inventory
+        return inventory[slot.index] if slot.index < len(inventory) else None
+
     @property
     def _rail_width(self) -> int:
         """Track the panel's inner width so rules span it and headers don't wrap."""
         try:
-            available = self.query_one("#rail", Static).content_size.width
+            available = self.query_one("#market", Static).content_size.width
         except Exception:
             available = 0
         if not available:
             available = RAIL_MIN_WIDTH
         return max(RAIL_MIN_WIDTH, min(available, RAIL_MAX_WIDTH))
 
-    def _rail(self) -> Text:
-        rule = "─" * self._rail_width
+    def _market(self) -> Text:
+        """The header over the buy list: what you have, and what you owe it to."""
         text = Text()
-        text.append_text(self._payout_section())
-        text.append("%s\n" % rule, style=theme.BORDER)
-        text.append_text(self._shop_section())
-        text.append("%s\n" % rule, style=theme.BORDER)
-        text.append_text(self._swap_section())
-        text.append("%s\n" % rule, style=theme.BORDER)
-        text.append_text(self._sell_section())
-        text.rstrip()  # rich's rstrip mutates in place and returns None
-        return text
-
-    def _header(self, title: str, right: Text, active: bool) -> Text:
-        text = Text()
-        style = "%s bold" % theme.TEXT if active else theme.DIM
-        text.append(title, style=style)
+        title = "MARKET" if self.phase.step is Step.MANAGE else "PAYOUT"
+        right = Text("%s %d" % (config.GOLD_GLYPH, self.run.gold), style=theme.GOLD)
         pad = max(1, self._rail_width - len(title) - right.cell_len)
+        text.append(title, style="%s bold" % theme.TEXT)
         text.append(" " * pad)
         text.append_text(right)
         text.append("\n")
-        return text
 
-    def _payout_section(self) -> Text:
-        step = self.phase.step
-        payout = self.phase.payout
-        active = step is Step.PAYOUT
-
-        right = Text("✓" if not active else "", style=theme.GREEN)
-        text = self._header("PAYOUT", right, active)
-
-        detail = Text()
-        detail.append(
-            "  won in %d move%s\n  " % (payout.move_count, "" if payout.move_count == 1 else "s"),
-            style=theme.DIM,
-        )
-        detail.append("%s%d" % (config.GOLD_GLYPH, payout.base), style=theme.GOLD)
-        if payout.stake_penalty:
-            detail.append(" −%d stake" % payout.stake_penalty, style=theme.RED)
-        if payout.skip_bonus:
-            detail.append(" +%d banked" % payout.skip_bonus, style=theme.GREEN)
-        detail.append(" → ", style=theme.DIM)
-        detail.append("%s%d\n" % (config.GOLD_GLYPH, payout.total),
-                      style="%s bold" % theme.GOLD)
-        text.append_text(detail)
-
-        # The casualty line. Permadeath is the point of the design, and this is
-        # the moment it should be informing what you buy.
-        if self.phase.casualties:
-            lost = Text("  lost  ", style=theme.DIM)
-            for piece in self.phase.casualties:
-                lost.append("%s " % theme.piece_glyph_for(piece), style=theme.RED)
-            lost.append("\n")
-            text.append_text(lost)
-        else:
-            text.append("  no losses\n", style=theme.GHOST)
-        return text
-
-    def _shop_section(self) -> Text:
-        step = self.phase.step
-        active = step is Step.SHOP
-        past = step in (Step.SELL, Step.SWAP, Step.DONE)
-
-        if past:
-            right = Text("✓", style=theme.GREEN)
-        elif active:
-            right = Text("%s %d" % (config.GOLD_GLYPH, self.run.gold), style=theme.GOLD)
-        else:
-            right = Text("locked", style=theme.GHOST)
-        text = self._header("SHOP", right, active)
-
-        if past:
-            if self.phase.skipped:
-                text.append("  skipped · +%d banked\n" % config.SKIP_BONUS,
-                            style=theme.GREEN)
-            elif self.phase.bought:
-                bought = Text("  bought ", style=theme.DIM)
-                for piece_type, count in self.phase.purchase_counts().items():
-                    bought.append("%s%s " % (
-                        theme.piece_glyph(piece_type),
-                        "×%d" % count if count > 1 else ""),
-                        style=theme.SEASONED)
-                bought.append("\n")
-                text.append_text(bought)
+        if self.phase.step is Step.PAYOUT:
+            payout = self.phase.payout
+            text.append("  won in %d moves\n" % payout.move_count, style=theme.DIM)
+            if payout.skip_bonus:
+                text.append("  banked +%d\n" % payout.skip_bonus, style=theme.GREEN)
+            if self.phase.casualties:
+                lost = Text("  lost  ", style=theme.DIM)
+                for piece in self.phase.casualties:
+                    lost.append("%s " % theme.piece_glyph_for(piece), style=theme.RED)
+                lost.append("\n")
+                text.append_text(lost)
             else:
-                text.append("  bought nothing\n", style=theme.GHOST)
-            return text
-
-        if not active:
-            return text
-
-        # The stock itself lives on the buttons below -- listing it here too
-        # would just be the same four rows twice.
-        if self.run.army.inventory_full:
-            text.append("  bench full — sell after closing\n", style=theme.RED)
-        else:
-            text.append("  purchases go to the bench\n", style=theme.GHOST)
+                text.append("  no losses\n", style=theme.GHOST)
+        elif self.phase.skipped:
+            text.append("  shop skipped\n", style=theme.GREEN)
         return text
 
-    def _sell_section(self) -> Text:
-        step = self.phase.step
-        active = step is Step.SELL
-        past = step is Step.DONE
+    def _receipt(self) -> Text:
+        """What this phase has cost and earned so far.
 
-        if past:
-            right = Text("✓", style=theme.GREEN)
-        elif active:
-            right = Text("%s %d" % (config.GOLD_GLYPH, self.run.gold), style=theme.GOLD)
-        else:
-            right = Text("after swapping", style=theme.GHOST)
-        text = self._header("SELL", right, active)
+        Replaces the four-section rail: with one open step there is no sequence
+        left to draw, so the panel reports history instead of position.
+        """
+        text = Text()
+        text.append("THIS ROUND\n", style=theme.DIM)
+        text.append("  swaps ", style=theme.DIM)
+        text.append("%d" % self.phase.swaps_left, style=theme.GREEN)
+        text.append("/%d left\n" % config.MAX_SWAPS, style=theme.GHOST)
 
-        if past:
-            if self.phase.sold_count:
-                text.append("  sold %d\n" % self.phase.sold_count, style=theme.DIM)
-            else:
-                text.append("  sold nothing\n", style=theme.GHOST)
-        elif active:
-            text.append("  click a benched piece\n", style=theme.DIM)
-            text.append("  half price, rounded down\n", style=theme.GHOST)
+        counts = self.phase.purchase_counts()
+        if counts:
+            bought = Text("  bought ", style=theme.DIM)
+            for piece_type, count in counts.items():
+                bought.append("%s%s " % (theme.piece_glyph(piece_type),
+                                         "x%d" % count if count > 1 else ""),
+                              style=theme.SEASONED)
+            bought.append("\n")
+            text.append_text(bought)
+        if self.phase.sold_count:
+            text.append("  sold %d\n" % self.phase.sold_count, style=theme.DIM)
+        if not counts and not self.phase.sold_count:
+            text.append("  nothing traded\n", style=theme.GHOST)
         return text
-
-    def _swap_section(self) -> Text:
-        step = self.phase.step
-        active = step is Step.SWAP
-
-        if active:
-            right = Text("%d left" % self.phase.swaps_left, style=theme.GREEN)
-        elif step in (Step.SELL, Step.DONE):
-            right = Text("✓", style=theme.GREEN)
-        else:
-            right = Text("locked", style=theme.GHOST)
-        text = self._header("SWAP", right, active)
-
-        if active:
-            if self.phase.swaps_left <= 0:
-                text.append("  budget spent\n", style=theme.GHOST)
-            elif self.selection is not None:
-                text.append("  lit squares are legal\n", style=theme.GREEN)
-            else:
-                text.append("  board ↔ bench, or move\n", style=theme.DIM)
-            text.append("  deploy on ranks 1-%d\n" % config.DEPLOYMENT_RANKS,
-                        style=theme.GHOST)
-        return text
-
-    # -- controls --------------------------------------------------------
 
     def _sync_controls(self) -> None:
         step = self.phase.step
 
         for index in range(len(catalogue())):
             button = self.query_one("#buy-%d" % index, Button)
-            visible = step is Step.SHOP and index < len(self.phase.stock)
+            visible = step is Step.MANAGE and index < len(self.phase.stock)
             button.display = visible
             if visible:
                 item = self.phase.stock[index]
@@ -391,7 +356,7 @@ class PostFightScreen(Screen):
                 button.disabled = not ok
 
         skip = self.query_one("#skip", Button)
-        skip.display = step is Step.SHOP and self.phase.can_skip
+        skip.display = step is Step.MANAGE and self.phase.can_skip
         if skip.display:
             kept, bonus = self.phase.skip_preview()
             # The numbers go on the button: a bare "skip" hides the most
@@ -400,11 +365,8 @@ class PostFightScreen(Screen):
                 config.GOLD_GLYPH, kept, bonus
             )
 
-        self.query_one("#close-shop", Button).display = step is Step.SHOP
-        self.query_one("#close-swap", Button).display = step is Step.SWAP
         finish = self.query_one("#finish", Button)
-        # Sell is the last step now, so "next fight" is what closes it.
-        finish.display = step in (Step.PAYOUT, Step.SELL)
+        finish.display = True
         finish.label = "collect" if step is Step.PAYOUT else "next fight"
 
     def _visible_controls(self) -> List[Button]:
@@ -424,10 +386,11 @@ class PostFightScreen(Screen):
     # -- keyboard --------------------------------------------------------
 
     def _zones(self) -> List["Zone"]:
-        """Which panes the keyboard can reach, given the step we're on."""
-        if self.phase.step is Step.SELL:
-            return [Zone.CONTROLS, Zone.BENCH]
-        if self.phase.step is Step.SWAP:
+        """Which panes the keyboard can reach.
+
+        During MANAGE that is all of them, because buying, selling and swapping
+        are simultaneous now -- there is no step left to gate a pane behind."""
+        if self.phase.step is Step.MANAGE:
             return [Zone.CONTROLS, Zone.BOARD, Zone.BENCH]
         return [Zone.CONTROLS]
 
@@ -485,16 +448,19 @@ class PostFightScreen(Screen):
         the deployment zone, the pawn rank, the board cap and the king rule all
         come along for free, and none of them can drift out of step here.
         """
-        if self.selection is None or self.phase.step is not Step.SWAP:
+        if self.selection is None or self.phase.step is not Step.MANAGE:
             return []
         return [square for square in chess.SQUARES
                 if self.phase.can_swap(self.selection, Slot.on_board(square))[0]]
 
     def _interact(self, slot: Slot) -> None:
+        """Enter always means pick-up-or-place. Selling has its own key.
+
+        With the three steps merged, a bench press can no longer be
+        disambiguated by the phase, so the verb is fixed and the destination
+        decides what happened."""
         self.notice = None
-        if self.phase.step is Step.SELL and not slot.is_board:
-            self._sell(slot.index)
-        elif self.phase.step is Step.SWAP:
+        if self.phase.step is Step.MANAGE:
             self._pick(slot)
 
     # -- diagnostics -----------------------------------------------------
@@ -535,6 +501,27 @@ class PostFightScreen(Screen):
 
     # -- interaction -----------------------------------------------------
 
+    def action_sell(self) -> None:
+        """Sell the bench piece in hand, or the one under the cursor.
+
+        Bench-only by design: cashing out a deployed piece means recalling it
+        first, and that costs a swap, so "deploy everything and sell the
+        survivors" is not free."""
+        if self.phase.step is not Step.MANAGE:
+            return
+        held = self.selection
+        if held is not None and not held.is_board:
+            index = held.index
+        elif held is None and self.zone is Zone.BENCH:
+            index = self.bench_cursor
+        else:
+            self.app.play_sound("deny")
+            self._say("only bench pieces can be sold", theme.GHOST)
+            self.refresh_all()
+            return
+        self.selection = None
+        self._sell(index)
+
     def action_clear_selection(self) -> None:
         self.selection = None
         self.refresh_all()
@@ -563,10 +550,6 @@ class PostFightScreen(Screen):
                 self._say(reason, theme.RED)
             else:
                 self._say("banked — the next payout compounds", theme.GREEN)
-        elif button_id == "close-shop":
-            self.phase.close_shop()
-        elif button_id == "close-swap":
-            self.phase.close_swap()
         elif button_id == "finish":
             if self.phase.step is Step.PAYOUT:
                 payout = self.phase.collect_payout()
@@ -628,6 +611,15 @@ class PostFightScreen(Screen):
                 return
             self.selection = slot
             self.app.play_sound("pickup")
+            # Lifting a piece is a statement of intent: go where it can land.
+            # Without this every deployment costs a tab the player must know
+            # to press.
+            if not slot.is_board:
+                targets = self._placement_targets()
+                if targets:
+                    self.zone = Zone.BOARD
+                    self.board_cursor = min(
+                        targets, key=lambda sq: abs(sq - self.board_cursor))
             self.refresh_all()
             return
 

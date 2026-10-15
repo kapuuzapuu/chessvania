@@ -40,6 +40,19 @@ class FakeEngine:
         pass
 
 
+async def settle_until(pilot, predicate, tries=40):
+    """Pump the event loop until `predicate` holds.
+
+    `switch_screen` lands a frame or two after the click that caused it, and
+    how many is load-dependent -- a fixed pause count is a flaky test waiting
+    to happen."""
+    for _ in range(tries):
+        if predicate():
+            return True
+        await pilot.pause()
+    return predicate()
+
+
 def drive(scenario):
     """Run an async pilot scenario from a sync test."""
     asyncio.run(scenario())
@@ -464,7 +477,7 @@ def test_post_fight_runs_on_the_keyboard():
 
             await pilot.press("enter")  # collect
             await pilot.pause()
-            assert phase.step is Step.SHOP
+            assert phase.step is Step.MANAGE
 
             app.run_state.gold = 20
             post.refresh_all()
@@ -491,10 +504,9 @@ def test_swap_step_exposes_board_and_bench_to_the_keyboard():
 
             post = app.screen
             post.phase.collect_payout()
-            post.phase.close_shop()
             post.refresh_all()
             await pilot.pause()
-            assert post.phase.step is Step.SWAP
+            assert post.phase.step is Step.MANAGE
 
             await pilot.press("tab")
             await pilot.pause()
@@ -536,24 +548,16 @@ def test_winning_routes_into_the_post_fight_rail():
             phase = app.screen.phase
             assert phase.step is Step.PAYOUT
 
-            # payout -> shop -> sell -> swap -> next fight
+            # payout -> manage (buy, sell and swap all at once) -> next fight
             await pilot.click("#finish")
             await pilot.pause()
-            assert phase.step is Step.SHOP
+            assert phase.step is Step.MANAGE
             assert app.run_state.gold > 0
-
-            await pilot.click("#close-shop")
-            await pilot.pause()
-            assert phase.step is Step.SWAP
-
-            await pilot.click("#close-swap")
-            await pilot.pause()
-            assert phase.step is Step.SELL
             assert phase.swaps_left == config.MAX_SWAPS
 
             await pilot.click("#finish")
-            await pilot.pause()
-            assert isinstance(app.screen, FightScreen)
+            assert await settle_until(
+                pilot, lambda: isinstance(app.screen, FightScreen))
             assert app.run_state.fight_index == 1
 
     drive(scenario)
@@ -611,15 +615,14 @@ def test_the_whole_ui_fits_the_minimum_terminal():
 
             await pilot.click("#finish")
             await pilot.pause()
-            assert_all_visible("shop")
+            assert_all_visible("manage")
 
-            await pilot.click("#close-shop")
+            # and with a piece in hand, which is when the action strip appears
+            app.screen.selection = Slot.on_bench(0) if app.run_state.army.inventory \
+                else None
+            app.screen.refresh_all()
             await pilot.pause()
-            assert_all_visible("sell")
-
-            await pilot.click("#close-swap")
-            await pilot.pause()
-            assert_all_visible("swap")
+            assert_all_visible("manage, holding")
 
     drive(scenario)
 
@@ -655,8 +658,7 @@ def test_a_spent_swap_budget_refuses_at_the_first_press():
 
             post = app.screen
             post.phase.collect_payout()
-            post.phase.close_shop()
-            assert post.phase.step is Step.SWAP
+            assert post.phase.step is Step.MANAGE
             post.phase.swaps_used = config.MAX_SWAPS      # budget spent
             post.refresh_all()
             await pilot.pause()
@@ -667,6 +669,6 @@ def test_a_spent_swap_budget_refuses_at_the_first_press():
             assert post.selection is None, "a piece was picked up with no swaps left"
             board = post.query_one("#board", BoardView)
             assert not board.targets, "squares lit with no swaps left"
-            assert "legal" not in post._swap_section().plain
+            assert "holding" not in post._action_strip().plain
 
     drive(scenario)

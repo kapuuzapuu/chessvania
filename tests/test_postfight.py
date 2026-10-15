@@ -25,22 +25,18 @@ def make_run(gold=0, army=None, stake=None):
     return run
 
 
-def at_shop(run, move_count=5):
+def at_manage(run, move_count=5):
+    """Past the payout and into the one open step, where everything happens."""
     phase = PostFight(run, move_count, [])
     phase.collect_payout()
     return phase
 
 
-def at_swap(run):
-    phase = at_shop(run)
-    phase.close_shop()
-    return phase
-
-
-def at_sell(run):
-    phase = at_swap(run)
-    phase.close_swap()
-    return phase
+# Buying, selling and swapping are simultaneous now; these names survive only
+# so each test still reads as the thing it is about.
+at_shop = at_manage
+at_swap = at_manage
+at_sell = at_manage
 
 
 # -- step 1: payout -----------------------------------------------------
@@ -55,7 +51,7 @@ def test_payout_lands_in_the_purse_and_clears_the_bank():
     assert run.gold == payout.total
     assert payout.skip_bonus == 2
     assert run.banked_skip_bonus == 0
-    assert phase.step is Step.SHOP
+    assert phase.step is Step.MANAGE
 
 
 # -- step 2: shop -------------------------------------------------------
@@ -162,7 +158,7 @@ def test_skipping_without_spending_banks_a_bonus():
     assert ok
     assert run.banked_skip_bonus == config.SKIP_BONUS
     assert run.gold == purse  # unspent gold stays, so skipping compounds twice over
-    assert phase.step is Step.SWAP
+    assert phase.step is Step.MANAGE
 
 
 def test_spending_forfeits_the_skip_bonus():
@@ -187,23 +183,37 @@ def test_skip_preview_reports_the_actual_numbers():
 # -- step 4: sell -------------------------------------------------------
 
 
-def test_selling_is_locked_until_swapping_is_done():
-    """Sell is the last step: you cannot price a piece you may still deploy."""
+def test_selling_needs_no_permission_from_the_other_actions():
+    """The three used to be gated in order; now they are simultaneous."""
     army = army_from_fen(TEXTBOOK)
     army.add_to_inventory(Piece(chess.ROOK))
+    run = make_run(gold=20, army=army)
+    phase = at_manage(run)
+
+    assert phase.sell(0)[0] is True, "selling should be open immediately"
+    assert phase.buy(0)[0] is True, "buying should still be open after a sale"
+    assert phase.swaps_left == config.MAX_SWAPS, "neither spent a swap"
+
+
+def test_sale_gold_can_fund_a_purchase_now():
+    """A deliberate consequence of merging: the old order existed to stop this."""
+    army = army_from_fen(TEXTBOOK)
+    army.add_to_inventory(Piece(chess.QUEEN))
     run = make_run(gold=0, army=army)
-    phase = at_shop(run)
+    phase = at_manage(run)
+    run.gold = 0                      # the payout already landed; spend it
 
-    ok, reason = phase.sell(0)
-    assert not ok
+    assert phase.buy(0)[0] is False, "no gold yet"
+    phase.sell(0)
+    assert run.gold > 0
+    assert phase.buy(0)[0] is True, "the sale should have funded this"
 
-    phase.close_shop()           # -> swap
-    ok, reason = phase.sell(0)
-    assert not ok and "swap" in reason
 
-    phase.close_swap()           # -> sell
-    ok, _ = phase.sell(0)
-    assert ok
+def test_selling_is_bench_only():
+    """Cashing out a deployed piece costs a swap to recall it first."""
+    run = make_run()
+    phase = at_manage(run)
+    assert phase.can_sell(0)[1], "an empty bench has nothing to sell"
 
 
 def test_selling_pays_and_removes_the_piece():

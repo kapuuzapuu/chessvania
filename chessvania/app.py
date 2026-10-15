@@ -92,6 +92,16 @@ class ChessvaniaApp(App):
         height: auto;
     }
 
+    #actions {
+        margin-top: 1;
+        height: auto;
+    }
+
+    #receipt {
+        height: auto;
+        margin-bottom: 0;
+    }
+
     #board {
         height: 25;
         width: 60;

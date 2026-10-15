@@ -177,8 +177,6 @@ async def play_one_fight(pilot, app):
     await pilot.pause()
     post = app.screen
     post.phase.collect_payout()
-    post.phase.close_shop()
-    post.phase.close_sell()
     post.phase.finish()
     app.finish_postfight(app.run_state)
     await pilot.pause()
