@@ -193,7 +193,35 @@ class PostFightScreen(Screen):
         self.refresh_all()
 
     def _hint(self) -> Text:
+        """What the keys do right now, under the board where there is width.
+
+        When something is in hand this is the action legend: the swap line
+        completes itself from wherever the cursor is, so enter is never a
+        guess. The left column only has thirteen columns to play with, which
+        is not enough to say any of this.
+        """
         text = Text()
+        held = self.selection
+        if held is not None and self.phase.step is Step.MANAGE:
+            piece = self._piece_at(held)
+            if piece is not None:
+                text.append("holding %s " % theme.piece_glyph_for(piece),
+                            style=theme.SEASONED)
+                text.append("· ", style=theme.GHOST)
+                text.append("enter", style=theme.GREEN)
+                text.append(" %s" % self._swap_label(), style=theme.DIM)
+                if not held.is_board:
+                    text.append(" · ", style=theme.GHOST)
+                    text.append("s", style=theme.GREEN)
+                    text.append(" sell ", style=theme.DIM)
+                    text.append("+%s%d" % (config.GOLD_GLYPH,
+                                           sell_value(piece.piece_type)),
+                                style=theme.GOLD)
+                text.append(" · ", style=theme.GHOST)
+                text.append("esc", style=theme.GREEN)
+                text.append(" put back", style=theme.DIM)
+                return text
+
         zones = self._zones()
         if self.zone is Zone.CONTROLS:
             text.append("↑↓", style=theme.GREEN)
@@ -217,42 +245,33 @@ class PostFightScreen(Screen):
         return text
 
     def _action_strip(self) -> Text:
-        """The verbs available for whatever is in your hand, where your hand is.
+        """The left column's cue. Thirteen columns, so it says almost nothing.
 
-        A legend rather than a menu: deploying still costs exactly one keypress
-        on the board, and this only tells you what else that piece could do.
-        Selling is bench-only, so a board piece is never offered it.
+        The full legend lives under the board in `_hint` -- this is only here
+        so the sell affordance sits beside the bench it applies to, which is
+        where you look for it.
         """
         text = Text()
         if self.phase.step is not Step.MANAGE:
-            text.append("bench reserves", style=theme.FAINT)
+            text.append("reserves", style=theme.FAINT)
             return text
 
         held = self.selection
-        if held is None:
-            text.append("pick a piece\n", style=theme.FAINT)
-            text.append("enter", style=theme.GREEN)
-            text.append(" to lift it", style=theme.GHOST)
-            return text
-
-        piece = self._piece_at(held)
+        piece = self._piece_at(held) if held is not None else None
         if piece is None:
+            text.append("enter", style=theme.GREEN)
+            text.append(" lift", style=theme.GHOST)
             return text
-        text.append("holding %s %s\n"
-                    % (theme.piece_glyph_for(piece), piece.name.lower()),
+
+        text.append("holding %s\n" % theme.piece_glyph_for(piece),
                     style=theme.SEASONED)
-
-        text.append("enter", style=theme.GREEN)
-        text.append("  %s\n" % self._swap_label(), style=theme.DIM)
-
         if not held.is_board:
             text.append("s", style=theme.GREEN)
-            text.append("      sell ", style=theme.DIM)
-            text.append("+%s%d\n" % (config.GOLD_GLYPH,
-                                      sell_value(piece.piece_type)),
-                        style=theme.GOLD)
+            text.append(" sell ", style=theme.DIM)
+            text.append("%s%d\n" % (config.GOLD_GLYPH,
+                                    sell_value(piece.piece_type)), style=theme.GOLD)
         text.append("esc", style=theme.GREEN)
-        text.append("    put back", style=theme.GHOST)
+        text.append(" drop", style=theme.GHOST)
         return text
 
     def _swap_label(self) -> str:
@@ -287,8 +306,15 @@ class PostFightScreen(Screen):
     def _market(self) -> Text:
         """The header over the buy list: what you have, and what you owe it to."""
         text = Text()
-        title = "MARKET" if self.phase.step is Step.MANAGE else "PAYOUT"
-        right = Text("%s %d" % (config.GOLD_GLYPH, self.run.gold), style=theme.GOLD)
+        collecting = self.phase.step is Step.PAYOUT
+        title = "PAYOUT" if collecting else "MARKET"
+        # Before collecting, `run.gold` is still last round's number -- showing
+        # it reads as "you won nothing". Show the incoming amount instead.
+        right = Text(
+            "+%s %d" % (config.GOLD_GLYPH, self.phase.payout.total) if collecting
+            else "%s %d" % (config.GOLD_GLYPH, self.run.gold),
+            style=theme.GOLD,
+        )
         pad = max(1, self._rail_width - len(title) - right.cell_len)
         text.append(title, style="%s bold" % theme.TEXT)
         text.append(" " * pad)
@@ -298,6 +324,10 @@ class PostFightScreen(Screen):
         if self.phase.step is Step.PAYOUT:
             payout = self.phase.payout
             text.append("  won in %d moves\n" % payout.move_count, style=theme.DIM)
+            text.append("  %s%d → %s%d\n" % (
+                config.GOLD_GLYPH, self.run.gold,
+                config.GOLD_GLYPH, self.run.gold + payout.total),
+                style=theme.GOLD)
             if payout.skip_bonus:
                 text.append("  banked +%d\n" % payout.skip_bonus, style=theme.GREEN)
             if self.phase.casualties:

@@ -40,6 +40,22 @@ class FakeEngine:
         pass
 
 
+async def settle_layout(pilot, selector, tries=40):
+    """Pause until a widget stops moving, then return where it landed.
+
+    `pilot.click(selector)` resolves the widget's region at click time, so
+    clicking into a column that is still reflowing aims at the old position.
+    Waiting a fixed number of frames is the same bug with extra steps."""
+    previous = None
+    for _ in range(tries):
+        await pilot.pause()
+        region = pilot.app.screen.query_one(selector).region
+        if region == previous:
+            return region
+        previous = region
+    return previous
+
+
 async def settle_until(pilot, predicate, tries=40):
     """Pump the event loop until `predicate` holds.
 
@@ -550,8 +566,11 @@ def test_winning_routes_into_the_post_fight_rail():
 
             # payout -> manage (buy, sell and swap all at once) -> next fight
             await pilot.click("#finish")
-            await pilot.pause()
-            assert phase.step is Step.MANAGE
+            assert await settle_until(pilot, lambda: phase.step is Step.MANAGE)
+            # Collecting makes the buy rows appear, which pushes #finish down
+            # the column. Click again before that reflow lands and the click
+            # aims at where the button used to be.
+            await settle_layout(pilot, "#finish")
             assert app.run_state.gold > 0
             assert phase.swaps_left == config.MAX_SWAPS
 
@@ -670,5 +689,63 @@ def test_a_spent_swap_budget_refuses_at_the_first_press():
             board = post.query_one("#board", BoardView)
             assert not board.targets, "squares lit with no swaps left"
             assert "holding" not in post._action_strip().plain
+
+    drive(scenario)
+
+
+def test_the_payout_panel_shows_what_you_are_about_to_be_paid():
+    """It read `run.gold`, which before collecting is still last round's."""
+
+    async def scenario():
+        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
+            screen = await start_fight(pilot, app)
+            app.run_state.gold = 0
+            app.finish_fight(app.run_state, screen.fight, [], won=True)
+            await pilot.pause()
+
+            post = app.screen
+            assert post.phase.step is Step.PAYOUT
+            assert post.phase.payout.total > 0
+            panel = post._market().plain
+            assert str(post.phase.payout.total) in panel, (
+                "the payout is not shown before collecting: %r" % panel)
+
+    drive(scenario)
+
+
+def test_the_action_legend_fits_the_columns_it_is_drawn_in():
+    """The left column is 13 columns wide; the legend needs far more.
+
+    It was drawn there anyway and clipped, which is why the sell affordance
+    was invisible. The cue stays left, the legend went under the board.
+    """
+
+    async def scenario():
+        from chessvania.core.postfight import Slot
+
+        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
+            screen = await start_fight(pilot, app)
+            app.finish_fight(app.run_state, screen.fight, [], won=True)
+            await pilot.pause()
+            post = app.screen
+            post.phase.collect_payout()
+            post.phase.buy(0)                       # something to hold
+            post.selection = Slot.on_bench(0)
+            post.refresh_all()
+            await pilot.pause()
+
+            strip = post.query_one("#actions")
+            for line in post._action_strip().plain.split("\n"):
+                assert len(line) <= strip.content_size.width, (
+                    "left cue %r overflows %d columns"
+                    % (line, strip.content_size.width))
+
+            status = post.query_one("#status")
+            hint = post._hint().plain
+            assert "sell" in hint, "the legend never mentions selling"
+            assert len(hint) <= status.content_size.width, (
+                "legend %r overflows %d columns" % (hint, status.content_size.width))
 
     drive(scenario)

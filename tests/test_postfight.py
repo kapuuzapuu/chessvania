@@ -348,11 +348,13 @@ def test_a_failed_placement_still_costs_nothing():
     assert phase.swaps_left == config.MAX_SWAPS
 
 
-def test_swapping_two_empty_slots_does_nothing():
+def test_swapping_two_bench_slots_does_nothing():
+    """Subsumed by the bench-order rule: no bench-to-bench move is useful."""
     run = make_run()
-    phase = at_swap(run)
+    phase = at_manage(run)
     ok, reason = phase.swap(Slot.on_bench(0), Slot.on_bench(1))
-    assert not ok and "empty" in reason
+    assert not ok and "bench order" in reason
+    assert phase.swaps_left == config.MAX_SWAPS
 
 
 def test_a_failed_swap_does_not_spend_the_budget():
@@ -404,3 +406,21 @@ def test_a_benched_pawn_lights_only_ranks_two_and_three():
     lit = [s for s in chess.SQUARES
            if phase.can_swap(Slot.on_bench(0), Slot.on_board(s))[0]]
     assert {chess.square_rank(s) + 1 for s in lit} == {2, 3}
+
+
+def test_shuffling_the_bench_is_refused_rather_than_charged():
+    """Bench order carries no meaning -- `_apply_swap` compacts it afterwards.
+
+    It used to be allowed, so rearranging the bench cost a swap and achieved
+    nothing at all.
+    """
+    army = army_from_fen(SHIELD)
+    army.add_to_inventory(Piece(chess.ROOK))
+    army.add_to_inventory(Piece(chess.KNIGHT))
+    run = make_run(army=army)
+    phase = at_manage(run)
+
+    ok, reason = phase.swap(Slot.on_bench(0), Slot.on_bench(1))
+    assert not ok
+    assert "bench order" in reason
+    assert phase.swaps_left == config.MAX_SWAPS, "a refused no-op charged a swap"

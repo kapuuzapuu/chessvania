@@ -221,6 +221,11 @@ class PostFight:
             return False, "no swaps left"
         if a == b:
             return False, "pick two different slots"
+        if not a.is_board and not b.is_board:
+            # `_apply_swap` compacts the bench afterwards, so its order carries
+            # no meaning and shuffling it achieves nothing. It used to cost a
+            # swap for that nothing.
+            return False, "bench order does not matter"
         for slot in (a, b):
             if not slot.is_board and not 0 <= slot.index < config.INVENTORY_CAP:
                 return False, "no such bench slot"
