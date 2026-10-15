@@ -879,3 +879,48 @@ def test_the_advance_note_fits_the_column():
                 assert len(line) <= widget.content_size.width, (
                     "%r overflows %d columns" % (line, widget.content_size.width))
     drive(scenario)
+
+
+def test_the_payout_screen_draws_no_empty_panels():
+    """A bordered box around nothing reads as something that failed to load."""
+
+    async def scenario():
+        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
+            screen = await start_fight(pilot, app)
+            app.finish_fight(app.run_state, screen.fight, [], won=True)
+            await pilot.pause()
+            post = app.screen
+            assert post.phase.step is Step.PAYOUT
+
+            for selector in ("#controls", "#advance-note", "#receipt",
+                             "#act-sell", "#swap-count"):
+                assert not post.query_one(selector).display, (
+                    "%s is on screen during the payout with nothing to show"
+                    % selector)
+
+            # ...and all of it comes back once there is something to do
+            post.phase.collect_payout()
+            post.refresh_all()
+            await pilot.pause()
+            for selector in ("#controls", "#advance-note", "#receipt",
+                             "#act-sell", "#swap-count"):
+                assert post.query_one(selector).display, "%s stayed hidden" % selector
+
+    drive(scenario)
+
+
+def test_the_payout_labels_its_numbers():
+    """"◇0 → ◇5" on its own does not say what is going from 0 to 5."""
+
+    async def scenario():
+        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
+            screen = await start_fight(pilot, app)
+            app.run_state.gold = 0
+            app.finish_fight(app.run_state, screen.fight, [], won=True)
+            await pilot.pause()
+            panel = app.screen._market().plain
+            assert "gold" in panel, "the before/after pair is unlabelled: %r" % panel
+
+    drive(scenario)

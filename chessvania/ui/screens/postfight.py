@@ -258,7 +258,10 @@ class PostFightScreen(Screen):
         sellable = (self.phase.step is Step.MANAGE
                     and piece is not None and not held.is_board)
 
+        managing = self.phase.step is Step.MANAGE
         sell = self.query_one("#act-sell", Button)
+        sell.display = managing
+        self.query_one("#swap-count").display = managing
         sell.disabled = not sellable
         sell.label = ("sell %s%d" % (config.GOLD_GLYPH, sell_value(piece.piece_type))
                       if sellable and piece is not None else "sell")
@@ -320,7 +323,8 @@ class PostFightScreen(Screen):
         if self.phase.step is Step.PAYOUT:
             payout = self.phase.payout
             text.append("  won in %d moves\n" % payout.move_count, style=theme.DIM)
-            text.append("  %s%d → %s%d\n" % (
+            text.append("  gold ", style=theme.DIM)
+            text.append("%s%d → %s%d\n" % (
                 config.GOLD_GLYPH, self.run.gold,
                 config.GOLD_GLYPH, self.run.gold + payout.total),
                 style=theme.GOLD)
@@ -377,6 +381,14 @@ class PostFightScreen(Screen):
                     config.GOLD_GLYPH, item.price
                 )
                 button.disabled = not ok
+
+        managing = step is Step.MANAGE
+        # An empty bordered box is worse than no box: during the payout the
+        # buy list has nothing in it, and a panel drawn around nothing reads
+        # as something that failed to load.
+        self.query_one("#controls").display = managing
+        self.query_one("#advance-note").display = managing
+        self.query_one("#receipt").display = managing
 
         finish = self.query_one("#finish", Button)
         finish.display = True
