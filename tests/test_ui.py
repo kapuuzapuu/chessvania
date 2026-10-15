@@ -7,6 +7,8 @@ import asyncio
 
 import chess
 
+from textual.widgets import Button, Static
+
 from chessvania import config
 from chessvania.app import ChessvaniaApp
 from chessvania.core.postfight import Step
@@ -688,7 +690,8 @@ def test_a_spent_swap_budget_refuses_at_the_first_press():
             assert post.selection is None, "a piece was picked up with no swaps left"
             board = post.query_one("#board", BoardView)
             assert not board.targets, "squares lit with no swaps left"
-            assert "holding" not in post._action_strip().plain
+            assert post.query_one("#act-swap", Button).disabled
+            assert post.query_one("#act-sell", Button).disabled
 
     drive(scenario)
 
@@ -714,11 +717,10 @@ def test_the_payout_panel_shows_what_you_are_about_to_be_paid():
     drive(scenario)
 
 
-def test_the_action_legend_fits_the_columns_it_is_drawn_in():
-    """The left column is 13 columns wide; the legend needs far more.
+def test_the_verb_buttons_light_only_for_what_the_piece_can_do():
+    """Greyed out they say "pick something up"; lit they say what it can do.
 
-    It was drawn there anyway and clipped, which is why the sell affordance
-    was invisible. The cue stays left, the legend went under the board.
+    Selling is bench-only, so a board piece lights swap alone.
     """
 
     async def scenario():
@@ -731,21 +733,77 @@ def test_the_action_legend_fits_the_columns_it_is_drawn_in():
             await pilot.pause()
             post = app.screen
             post.phase.collect_payout()
-            post.phase.buy(0)                       # something to hold
+            post.phase.buy(0)                          # something to hold
+            post.refresh_all()
+            await pilot.pause()
+
+            sell = post.query_one("#act-sell", Button)
+            swap = post.query_one("#act-swap", Button)
+            assert sell.disabled and swap.disabled, "lit with nothing in hand"
+
+            post.selection = Slot.on_bench(0)          # a bench piece
+            post.refresh_all()
+            await pilot.pause()
+            assert not sell.disabled, "a benched piece can be sold"
+            assert not swap.disabled, "a benched piece can be deployed"
+            assert str(post.run.army.inventory[0].value // 2 or 1) in str(sell.label)
+
+            king = post.run.army.king_square()
+            post.selection = Slot.on_board(king)       # a board piece
+            post.refresh_all()
+            await pilot.pause()
+            assert sell.disabled, "board pieces are not sellable"
+
+    drive(scenario)
+
+
+def test_the_swap_budget_reads_beside_the_bench_not_in_the_market():
+    async def scenario():
+        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
+            screen = await start_fight(pilot, app)
+            app.finish_fight(app.run_state, screen.fight, [], won=True)
+            await pilot.pause()
+            post = app.screen
+            post.phase.collect_payout()
+            post.refresh_all()
+            await pilot.pause()
+
+            left = post.query_one("#swap-count", Static).render().plain
+            assert "swaps" in left and str(config.MAX_SWAPS) in left
+            assert "swap" not in post._receipt().plain.lower(), (
+                "the budget is still being reported in the market panel too"
+            )
+
+    drive(scenario)
+
+
+def test_the_verb_row_fits_the_column_it_is_drawn_in():
+    """The left column is 17 wide and holds two buttons side by side."""
+
+    async def scenario():
+        from chessvania.core.postfight import Slot
+
+        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
+            screen = await start_fight(pilot, app)
+            app.finish_fight(app.run_state, screen.fight, [], won=True)
+            await pilot.pause()
+            post = app.screen
+            post.phase.collect_payout()
+            post.phase.buy(4)                          # a queen, the longest label
             post.selection = Slot.on_bench(0)
             post.refresh_all()
             await pilot.pause()
 
-            strip = post.query_one("#actions")
-            for line in post._action_strip().plain.split("\n"):
-                assert len(line) <= strip.content_size.width, (
-                    "left cue %r overflows %d columns"
-                    % (line, strip.content_size.width))
-
-            status = post.query_one("#status")
-            hint = post._hint().plain
-            assert "sell" in hint, "the legend never mentions selling"
-            assert len(hint) <= status.content_size.width, (
-                "legend %r overflows %d columns" % (hint, status.content_size.width))
+            column = post.query_one("#left").region
+            for selector in ("#verbs", "#act-sell", "#act-swap", "#swap-count"):
+                box = post.query_one(selector).region
+                assert box.x >= column.x and box.x + box.width <= column.x + column.width, (
+                    "%s (%s) escapes the %d-wide column" % (selector, box, column.width))
+            sell = post.query_one("#act-sell", Button)
+            assert len(str(sell.label)) <= sell.region.width, (
+                "label %r is wider than the %d columns it has"
+                % (str(sell.label), sell.region.width))
 
     drive(scenario)
