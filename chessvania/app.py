@@ -96,6 +96,16 @@ class ChessvaniaApp(App):
         margin-top: 1;
     }
 
+    #finish {
+        margin-top: 1;
+    }
+
+    #advance-note {
+        height: auto;
+        padding: 0 1;
+        margin-bottom: 1;
+    }
+
     #swap-count {
         height: 1;
         margin-top: 1;

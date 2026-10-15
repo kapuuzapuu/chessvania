@@ -181,12 +181,6 @@ class PostFight:
         """
         return self.run.gold, config.SKIP_BONUS
 
-    def skip_shop(self) -> Tuple[bool, str]:
-        if not self.can_skip:
-            return False, "you have already spent gold this visit"
-        self.run.bank_skip_bonus()
-        self.skipped = True
-        return True, ""
 
     # -- the market: selling -----------------------------------------------
 
@@ -271,6 +265,14 @@ class PostFight:
     # -- finish ----------------------------------------------------------
 
     def finish(self) -> None:
+        """End the phase, banking the skip bonus if nothing was bought.
+
+        Skipping used to be a separate button you had to find and press. It is
+        the same action as leaving -- the only difference is whether you spent
+        anything on the way out -- so leaving now checks for itself."""
+        if self.can_skip:
+            self.run.bank_skip_bonus()
+            self.skipped = True
         self.step = Step.DONE
         self.run.on_postfight_done()
 

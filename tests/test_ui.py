@@ -804,3 +804,78 @@ def test_the_sell_button_fits_the_column_it_is_drawn_in():
                 % (str(sell.label), sell.region.width))
 
     drive(scenario)
+
+
+def test_next_battle_is_the_only_way_out_and_banks_the_bonus_itself():
+    """Skip used to be a second button you had to notice and press."""
+
+    async def scenario():
+        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
+            screen = await start_fight(pilot, app)
+            app.finish_fight(app.run_state, screen.fight, [], won=True)
+            await pilot.pause()
+            post = app.screen
+            post.phase.collect_payout()
+            post.refresh_all()
+            await pilot.pause()
+
+            assert not post.query("#skip"), "the skip button should be gone"
+            finish = post.query_one("#finish", Button)
+            assert "next battle" in str(finish.label)
+
+            note = post.query_one("#advance-note", Static).render().plain
+            assert str(config.SKIP_BONUS) in note, (
+                "the bonus is not explained anywhere: %r" % note)
+
+            banked_before = app.run_state.banked_skip_bonus
+            await settle_layout(pilot, "#finish")
+            await pilot.click("#finish")
+            assert await settle_until(
+                pilot, lambda: isinstance(app.screen, FightScreen))
+            assert app.run_state.banked_skip_bonus > banked_before, (
+                "leaving unspent should have banked the bonus"
+            )
+
+    drive(scenario)
+
+
+def test_the_note_says_the_bonus_is_gone_once_you_buy():
+    async def scenario():
+        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
+            screen = await start_fight(pilot, app)
+            app.finish_fight(app.run_state, screen.fight, [], won=True)
+            await pilot.pause()
+            post = app.screen
+            post.phase.collect_payout()
+            post.refresh_all()
+            await pilot.pause()
+            before = post.query_one("#advance-note", Static).render().plain
+
+            post.phase.buy(0)
+            post.refresh_all()
+            await pilot.pause()
+            after = post.query_one("#advance-note", Static).render().plain
+            assert before != after, "the note did not react to the purchase"
+            assert "spent" in after
+
+    drive(scenario)
+
+
+def test_the_advance_note_fits_the_column():
+    async def scenario():
+        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
+        async with app.run_test(size=MIN_TERMINAL) as pilot:
+            screen = await start_fight(pilot, app)
+            app.finish_fight(app.run_state, screen.fight, [], won=True)
+            await pilot.pause()
+            post = app.screen
+            post.phase.collect_payout()
+            post.refresh_all()
+            await pilot.pause()
+            widget = post.query_one("#advance-note", Static)
+            for line in widget.render().plain.split("\n"):
+                assert len(line) <= widget.content_size.width, (
+                    "%r overflows %d columns" % (line, widget.content_size.width))
+    drive(scenario)

@@ -148,28 +148,42 @@ def test_repeat_purchases_group_in_the_receipt():
 # -- skipping compounds -------------------------------------------------
 
 
-def test_skipping_without_spending_banks_a_bonus():
+def test_leaving_without_spending_banks_a_bonus():
+    """Skipping is not a separate action any more -- it is just how you left."""
     run = make_run(gold=10)
-    phase = at_shop(run)
+    phase = at_manage(run)
     purse = run.gold
 
     assert phase.can_skip is True
-    ok, _ = phase.skip_shop()
-    assert ok
+    phase.finish()
     assert run.banked_skip_bonus == config.SKIP_BONUS
     assert run.gold == purse  # unspent gold stays, so skipping compounds twice over
-    assert phase.step is Step.MANAGE
 
 
-def test_spending_forfeits_the_skip_bonus():
+def test_spending_forfeits_the_bonus_on_the_way_out():
     run = make_run(gold=99)
-    phase = at_shop(run)
+    phase = at_manage(run)
     phase.buy(0)
 
     assert phase.can_skip is False
-    ok, _ = phase.skip_shop()
-    assert not ok
+    phase.finish()
     assert run.banked_skip_bonus == 0
+
+
+def test_selling_does_not_forfeit_the_bonus():
+    """The bonus is for walking away from the MARKET's buy side, not the phase.
+
+    Selling and swapping are not purchases, so neither should cost it.
+    """
+    army = army_from_fen(TEXTBOOK)
+    army.add_to_inventory(Piece(chess.ROOK))
+    run = make_run(gold=10, army=army)
+    phase = at_manage(run)
+
+    phase.sell(0)
+    assert phase.can_skip is True, "a sale is not a purchase"
+    phase.finish()
+    assert run.banked_skip_bonus == config.SKIP_BONUS
 
 
 def test_skip_preview_reports_the_actual_numbers():

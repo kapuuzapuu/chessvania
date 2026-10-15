@@ -95,8 +95,8 @@ class PostFightScreen(Screen):
                 with Vertical(id="controls", classes="panel"):
                     for index in range(len(catalogue())):
                         yield Button("", id="buy-%d" % index, classes="shop-button")
-                    yield Button("", id="skip")
-                    yield Button("finish", id="finish")
+                yield Button("next battle", id="finish")
+                yield Static(id="advance-note")
                 yield Static(id="receipt", classes="panel")
         yield DevBar(id="devbar")
 
@@ -378,23 +378,32 @@ class PostFightScreen(Screen):
                 )
                 button.disabled = not ok
 
-        skip = self.query_one("#skip", Button)
-        skip.display = step is Step.MANAGE and self.phase.can_skip
-        if skip.display:
-            kept, bonus = self.phase.skip_preview()
-            # The numbers go on the button: a bare "skip" hides the most
-            # interesting economic decision in the game.
-            skip.label = "skip · keep %s%d, +%d next" % (
-                config.GOLD_GLYPH, kept, bonus
-            )
-
         finish = self.query_one("#finish", Button)
         finish.display = True
-        finish.label = "collect" if step is Step.PAYOUT else "next fight"
+        finish.label = "collect" if step is Step.PAYOUT else "next battle"
+
+        # The bonus is the most interesting decision in the phase, so it is
+        # stated under the button that resolves it either way -- what you gain
+        # by walking away, or what buying has already cost you.
+        note = Text()
+        if step is Step.MANAGE:
+            _, bonus = self.phase.skip_preview()
+            if self.phase.can_skip:
+                note.append("buy nothing: ", style=theme.DIM)
+                note.append("+%s%d next" % (config.GOLD_GLYPH, bonus),
+                            style=theme.GREEN)
+            else:
+                note.append("+%s%d bonus spent" % (config.GOLD_GLYPH, bonus),
+                            style=theme.GHOST)
+        self.query_one("#advance-note", Static).update(note)
 
     def _visible_controls(self) -> List[Button]:
         """The buttons currently on screen, in the order they are laid out."""
-        return [b for b in self.query("#controls Button") if b.display]
+        buttons = [b for b in self.query("#controls Button") if b.display]
+        finish = self.query_one("#finish", Button)
+        if finish.display:
+            buttons.append(finish)
+        return buttons
 
     def _apply_control_focus(self) -> None:
         controls = self._visible_controls()
@@ -567,12 +576,6 @@ class PostFightScreen(Screen):
             else:
                 item = self.phase.stock[index]
                 self._say("%s benched" % PIECE_NAMES[item.piece_type].lower(), theme.GREEN)
-        elif button_id == "skip":
-            ok, reason = self.phase.skip_shop()
-            if not ok:
-                self._say(reason, theme.RED)
-            else:
-                self._say("banked — the next payout compounds", theme.GREEN)
         elif button_id == "act-sell":
             self.action_sell()
             return
