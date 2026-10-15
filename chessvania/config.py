@@ -30,6 +30,17 @@ run."""
 DEV_GOLD_STEP = 10
 """Gold granted per press of the dev gold key."""
 
+OUTCOME_DWELL = 1.8
+"""Seconds the finished position stays up before the post-fight screen.
+
+A beat to read the board and see what the last move did. Worth having once;
+friction when you are forcing twenty outcomes in a row, which is why dev mode
+uses the shorter one below."""
+
+DEV_OUTCOME_DWELL = 0.05
+"""The same pause in dev mode: long enough to stay a screen change rather
+than a jump cut, short enough to blitz a run."""
+
 # --------------------------------------------------------------------------
 # Army limits
 # --------------------------------------------------------------------------

@@ -340,7 +340,13 @@ these shortcuts:
 | `f5` | remove the enemy piece under the cursor | refill swaps |
 
 `f3` in a fight followed by `f3` in the post-fight phase blitzes through a whole
-run, which is the fastest way to reach ante 3 and look at the final bosses.
+run, which is the fastest way to reach ante 3 and look at the final bosses. The
+beat the game normally holds on a finished position is shortened to almost
+nothing while dev mode is on, so forcing twenty outcomes does not cost you
+thirty-six seconds of watching.
+
+To land in the shop with money to spend: `f3` to win, `collect`, then `f2` as
+many times as you need.
 
 It is a debugger, not a sandbox: **progression behaves normally while it is on**,
 so a run played with dev mode is still a real run. Removing the enemy king is

@@ -236,3 +236,11 @@ def test_dev_mode_leaves_progression_intact(dev_mode):
             assert app.run_state.fight_index == 1
 
     drive(scenario)
+
+
+def test_the_outcome_dwell_shortens_in_dev_mode():
+    """A beat to read the final board is right once and wrong twenty times."""
+    assert config.DEV_OUTCOME_DWELL < config.OUTCOME_DWELL
+    assert config.DEV_OUTCOME_DWELL > 0, (
+        "zero would be a jump cut; it should still read as a screen change"
+    )

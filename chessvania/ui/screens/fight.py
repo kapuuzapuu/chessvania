@@ -797,9 +797,13 @@ class FightScreen(Screen):
         won = self.fight.outcome is Outcome.PLAYER_WIN
         self.app.play_sound("win" if won else "defeat")
         self.set_status(self._outcome_message(won), theme.GOLD if won else theme.RED)
-        # Let the final position sit for a beat before the screen changes.
+        # Let the final position sit for a beat before the screen changes --
+        # except in dev mode, where the beat is twenty beats and you are trying
+        # to reach the shop.
+        dwell = (config.DEV_OUTCOME_DWELL if config.DEV_MODE
+                 else config.OUTCOME_DWELL)
         self.set_timer(
-            1.8,
+            dwell,
             lambda: self.app.finish_fight(self.run, self.fight, casualties, won),
         )
 
