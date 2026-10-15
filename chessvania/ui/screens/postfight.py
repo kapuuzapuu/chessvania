@@ -85,9 +85,7 @@ class PostFightScreen(Screen):
             with Vertical(id="left"):
                 yield Static(id="bench-label")
                 yield BenchView(id="bench")
-                with Horizontal(id="verbs"):
-                    yield Button("sell", id="act-sell")
-                    yield Button("swap", id="act-swap")
+                yield Button("sell", id="act-sell")
                 yield Static(id="swap-count")
             with Vertical(id="center"):
                 yield BoardView(id="board")
@@ -248,29 +246,25 @@ class PostFightScreen(Screen):
         return text
 
     def _sync_verbs(self) -> None:
-        """Light the two verbs the held piece actually has.
+        """Light the sell button, and only it.
 
-        They are indicators first and controls second: greyed out they say
-        "pick something up", lit they say what that something can do. Selling
-        is bench-only, so a board piece lights swap alone.
+        Selling is the one verb with nowhere to point: every other action in
+        this phase is expressed by clicking where you want the piece to end
+        up, so the destination IS the verb. A swap button would only have
+        duplicated a click the board already accepts.
         """
         held = self.selection
         piece = self._piece_at(held) if held is not None else None
-        managing = self.phase.step is Step.MANAGE
+        sellable = (self.phase.step is Step.MANAGE
+                    and piece is not None and not held.is_board)
 
         sell = self.query_one("#act-sell", Button)
-        swap = self.query_one("#act-swap", Button)
-        sell.disabled = not (managing and piece is not None and not held.is_board)
-        swap.disabled = not (managing and piece is not None
-                             and bool(self._placement_targets()))
-
-        sell.label = ("sell %s%d" % (config.GOLD_GLYPH,
-                                     sell_value(piece.piece_type))
-                      if not sell.disabled and piece is not None else "sell")
-        swap.label = "swap"
+        sell.disabled = not sellable
+        sell.label = ("sell %s%d" % (config.GOLD_GLYPH, sell_value(piece.piece_type))
+                      if sellable and piece is not None else "sell")
 
         count = Text()
-        if managing:
+        if self.phase.step is Step.MANAGE:
             count.append("swaps ", style=theme.DIM)
             count.append("%d" % self.phase.swaps_left, style=theme.GREEN)
             count.append("/%d" % config.MAX_SWAPS, style=theme.GHOST)
@@ -561,22 +555,6 @@ class PostFightScreen(Screen):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         self._activate_control(event.button.id or "")
 
-    def _act_swap(self) -> None:
-        """Commit at the cursor if it is already on a legal square, else go there.
-
-        After picking a piece up the cursor is auto-jumped onto a legal target,
-        so the common case is that this button simply does the swap.
-        """
-        targets = self._placement_targets()
-        if not targets:
-            return
-        if self.zone is Zone.BOARD and self.board_cursor in targets:
-            self._pick(Slot.on_board(self.board_cursor))
-            return
-        self.zone = Zone.BOARD
-        self.board_cursor = min(targets, key=lambda sq: abs(sq - self.board_cursor))
-        self.refresh_all()
-
     def _activate_control(self, button_id: str) -> None:
         self.notice = None
 
@@ -597,9 +575,6 @@ class PostFightScreen(Screen):
                 self._say("banked — the next payout compounds", theme.GREEN)
         elif button_id == "act-sell":
             self.action_sell()
-            return
-        elif button_id == "act-swap":
-            self._act_swap()
             return
         elif button_id == "finish":
             if self.phase.step is Step.PAYOUT:

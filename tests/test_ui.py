@@ -690,7 +690,6 @@ def test_a_spent_swap_budget_refuses_at_the_first_press():
             assert post.selection is None, "a piece was picked up with no swaps left"
             board = post.query_one("#board", BoardView)
             assert not board.targets, "squares lit with no swaps left"
-            assert post.query_one("#act-swap", Button).disabled
             assert post.query_one("#act-sell", Button).disabled
 
     drive(scenario)
@@ -717,10 +716,10 @@ def test_the_payout_panel_shows_what_you_are_about_to_be_paid():
     drive(scenario)
 
 
-def test_the_verb_buttons_light_only_for_what_the_piece_can_do():
-    """Greyed out they say "pick something up"; lit they say what it can do.
+def test_sell_is_the_only_button_and_lights_only_for_bench_pieces():
+    """Every other action points at a destination, so the click is the verb.
 
-    Selling is bench-only, so a board piece lights swap alone.
+    Selling has nowhere to point, which is why it alone needs a control.
     """
 
     async def scenario():
@@ -738,14 +737,12 @@ def test_the_verb_buttons_light_only_for_what_the_piece_can_do():
             await pilot.pause()
 
             sell = post.query_one("#act-sell", Button)
-            swap = post.query_one("#act-swap", Button)
-            assert sell.disabled and swap.disabled, "lit with nothing in hand"
+            assert sell.disabled, "lit with nothing in hand"
 
             post.selection = Slot.on_bench(0)          # a bench piece
             post.refresh_all()
             await pilot.pause()
             assert not sell.disabled, "a benched piece can be sold"
-            assert not swap.disabled, "a benched piece can be deployed"
             assert str(post.run.army.inventory[0].value // 2 or 1) in str(sell.label)
 
             king = post.run.army.king_square()
@@ -778,8 +775,8 @@ def test_the_swap_budget_reads_beside_the_bench_not_in_the_market():
     drive(scenario)
 
 
-def test_the_verb_row_fits_the_column_it_is_drawn_in():
-    """The left column is 17 wide and holds two buttons side by side."""
+def test_the_sell_button_fits_the_column_it_is_drawn_in():
+    """The left column is 17 wide; the thing this replaced was invisible there."""
 
     async def scenario():
         from chessvania.core.postfight import Slot
@@ -797,7 +794,7 @@ def test_the_verb_row_fits_the_column_it_is_drawn_in():
             await pilot.pause()
 
             column = post.query_one("#left").region
-            for selector in ("#verbs", "#act-sell", "#act-swap", "#swap-count"):
+            for selector in ("#act-sell", "#swap-count"):
                 box = post.query_one(selector).region
                 assert box.x >= column.x and box.x + box.width <= column.x + column.width, (
                     "%s (%s) escapes the %d-wide column" % (selector, box, column.width))

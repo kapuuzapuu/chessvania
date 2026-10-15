@@ -92,14 +92,8 @@ class ChessvaniaApp(App):
         height: auto;
     }
 
-    #verbs {
-        height: 1;
+    #act-sell {
         margin-top: 1;
-    }
-
-    #verbs Button {
-        width: 1fr;
-        margin: 0;
     }
 
     #swap-count {
