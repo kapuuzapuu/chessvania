@@ -23,7 +23,6 @@ from ...core.army import PIECE_NAMES, PIECE_VALUES, Piece
 from ...core.economy import tier_ladder
 from ...core.fight import Fight, Outcome
 from ...core.run import RunState
-from ...core.threat import Danger, ThreatReport, cover, read as read_threats
 from .. import theme
 from ..layout import scale_board
 from ..widgets.bench import COLUMNS as BENCH_COLUMNS
@@ -43,10 +42,6 @@ STATUS_WIDTH = 27
 A line that wraps silently doubles this panel's height and pushes the board off
 a 104x30 terminal, so every row below is measured rather than trusted.
 """
-
-THREAT_ROWS = 3
-"""Threat lines the panel will show. `ThreatReport.threats` is sorted worst
-first, so truncating from the bottom drops the least important warning."""
 
 
 class Zone(Enum):
@@ -85,7 +80,6 @@ class FightScreen(Screen):
         self.notice: Optional[Text] = None
         self.promotion_moves: List[chess.Move] = []
         self.promotion_index = 0
-        self.report: ThreatReport = read_threats(fight.board)
         """Recomputed every refresh. It is a static read over 32 squares, which
         costs nothing next to a Textual repaint."""
         self._by_id: Dict[int, Piece] = {
@@ -135,12 +129,10 @@ class FightScreen(Screen):
         spec_label = "%s · %s" % (self.fight.enemy_name, self.fight.tier)
         self.query_one("#topbar", TopBar).show(self.run, spec_label)
 
-        self.report = read_threats(self.fight.board)
 
         last = self.fight.board.peek() if self.fight.board.move_stack else None
         board_view = self.query_one("#board", BoardView)
         board_view.set_board(self.fight.board, self._veterancy_map(), last)
-        board_view.set_threats(self.report.by_square)
         board_view.set_selection(self.selected, self._targets())
         board_view.set_cursor(self.cursor, active=self.zone is Zone.BOARD)
 
@@ -228,13 +220,7 @@ class FightScreen(Screen):
         self.query_one("#status", Static).update(self._status_text())
 
     def _status_text(self) -> Text:
-        """One transient line, then the threat readout, then a control hint.
-
-        The readout is the resting state of this panel. It used to hold nothing
-        but keyboard hints, which every player has memorised by the second fight
-        and which say nothing about the only thing at stake here -- which of
-        your pieces is about to be taken off the run for good.
-        """
+        """A transient line when there is one, then the controls."""
         if self.promotion_moves:
             return self._promotion_picker()
 
@@ -246,8 +232,6 @@ class FightScreen(Screen):
             text.append_text(self.notice)
             text.append("\n")
 
-        text.append_text(self._threat_panel())
-        text.append("\n")
         text.append_text(self._hint_line())
         return text
 
@@ -270,111 +254,6 @@ class FightScreen(Screen):
             text.append("tab", style=theme.GREEN)
             text.append(" bench", style=theme.GHOST)
         return text
-
-    # -- threat readout --------------------------------------------------
-
-    def _mark(self, square: chess.Square) -> str:
-        """A piece and where it stands, as one token: `♞g5`."""
-        piece = self.fight.board.piece_at(square)
-        glyph = theme.piece_glyph(piece.piece_type, piece.color) if piece else ""
-        return "%s%s" % (glyph, chess.square_name(square))
-
-    def _row(self, left: Text, right: Optional[Text] = None) -> Text:
-        """Left-aligned text with an optional right-aligned tail, padded to fit.
-
-        Drops the tail rather than wrapping if the two collide -- losing the
-        number is survivable, gaining a row is not.
-        """
-        if right is None:
-            return left
-        gap = STATUS_WIDTH - left.cell_len - right.cell_len
-        if gap < 1:
-            return left
-        left.append(" " * gap)
-        left.append_text(right)
-        return left
-
-    def _threat_panel(self) -> Text:
-        report = self.report
-        text = Text()
-        text.append_text(self._row(Text("THREAT", style=theme.DIM), self._verdict()))
-
-        if report.in_check:
-            text.append("\n")
-            text.append_text(self._check_line())
-
-        shown = 0
-        for threat in report.threats:
-            if shown >= THREAT_ROWS:
-                break
-            if threat.level is Danger.CHECK:
-                continue  # already said, louder, on its own line
-            text.append("\n")
-            text.append_text(self._threat_line(threat))
-            shown += 1
-
-        remaining = len([t for t in report.threats if t.level is not Danger.CHECK]) - shown
-        if remaining > 0:
-            text.append("\n")
-            text.append("  +%d more attacked" % remaining, style=theme.GHOST)
-
-        if report.opportunities:
-            text.append("\n")
-            text.append_text(self._opportunity_line(report.opportunities[0]))
-        return text
-
-    def _verdict(self) -> Text:
-        """The one-glance summary, right-aligned against the panel title."""
-        report = self.report
-        if report.in_check:
-            return Text("IN CHECK", style="%s bold" % theme.DANGER)
-        if report.material_at_risk:
-            return Text(
-                "%d at risk" % report.material_at_risk,
-                style=theme.DANGER if report.worst is Danger.HANGING else theme.CAUTION,
-            )
-        if report.threats:
-            return Text("trades even", style=theme.GREEN)
-        return Text("nothing attacked", style=theme.GREEN)
-
-    def _check_line(self) -> Text:
-        report = self.report
-        marks = " ".join(self._mark(square) for square in report.checkers)
-        left = Text()
-        left.append("+ ", style="%s bold" % theme.DANGER)
-        left.append(marks, style=theme.ENEMY_PIECE)
-        left.append(" checks" if len(report.checkers) == 1 else " double check",
-                    style=theme.DANGER)
-        # Escape count is the tension: one way out plays very differently from ten.
-        tail = Text(
-            "%d out" % report.escapes,
-            style=theme.DANGER if report.escapes <= 2 else theme.DIM,
-        )
-        return self._row(left, tail)
-
-    def _threat_line(self, threat) -> Text:
-        color = theme.threat_color(threat.level) or theme.DIM
-        left = Text()
-        left.append("%s " % (theme.threat_marker(threat.level) or " "), style=color)
-        left.append(self._mark(threat.square), style=theme.TEXT)
-
-        if threat.level is Danger.HANGING:
-            left.append(" free to ", style=theme.DIM)
-            left.append(self._mark(threat.cheapest_attacker), style=theme.ENEMY_PIECE)
-        elif threat.level is Danger.TRADE:
-            left.append(" trades down", style=theme.DIM)
-        else:
-            left.append(" attacked, held", style=theme.DIM)
-
-        tail = Text("-%d" % threat.loss, style=color) if threat.loss else None
-        return self._row(left, tail)
-
-    def _opportunity_line(self, chance) -> Text:
-        left = Text()
-        left.append("> ", style=theme.GOLD)
-        left.append(self._mark(chance.square), style=theme.ENEMY_PIECE)
-        left.append(" is free" if chance.free else " is worth taking", style=theme.DIM)
-        return self._row(left, Text("+%d" % chance.gain, style=theme.GOLD))
 
     def _promotion_picker(self) -> Text:
         text = Text()
@@ -424,77 +303,16 @@ class FightScreen(Screen):
                 text.append("\n%s · %d fights survived"
                             % (owned.veterancy_label, owned.fights_survived),
                             style=color if owned.veterancy else theme.FAINT)
-            detail = self._own_piece_detail(square)
         else:
             text.append("%s " % theme.piece_glyph(piece.piece_type, piece.color),
                         style=theme.enemy_color(piece.piece_type))
             text.append("Enemy %s" % PIECE_NAMES[piece.piece_type], style=theme.TEXT)
             text.append(" · value %d" % PIECE_VALUES[piece.piece_type], style=theme.FAINT)
-            detail = self._enemy_piece_detail(square)
 
-        if detail is not None:
-            text.append("\n")
-            text.append_text(detail)
         return text
 
     def _empty_square_inspect(self, square: chess.Square) -> Text:
-        """Whether it is safe to stand here -- the question you ask of an empty
-        square, and one the board's own colours cannot answer."""
-        text = Text(chess.square_name(square), style=theme.GHOST)
-        guards = cover(self.fight.board, square, chess.BLACK)
-        text.append("\n")
-        if guards:
-            text.append("covered by ", style=theme.DIM)
-            text.append(self._marks(guards), style=theme.ENEMY_PIECE)
-        else:
-            text.append("uncontested", style=theme.GREEN)
-        return text
-
-    def _own_piece_detail(self, square: chess.Square) -> Optional[Text]:
-        threat = self.report.at(square)
-        if threat is None:
-            return None
-        color = theme.threat_color(threat.level) or theme.DIM
-        text = Text()
-        text.append("%s " % (theme.threat_marker(threat.level) or " "), style=color)
-
-        if threat.level is Danger.CHECK:
-            text.append("in check from ", style=color)
-            text.append(self._marks(threat.attackers), style=theme.ENEMY_PIECE)
-        elif threat.level is Danger.HANGING:
-            text.append(self._marks(threat.attackers), style=theme.ENEMY_PIECE)
-            text.append(" takes it for free", style=color)
-        elif threat.level is Danger.TRADE:
-            text.append(self._marks(threat.attackers), style=theme.ENEMY_PIECE)
-            text.append(" trades you down %d" % threat.loss, style=color)
-        else:
-            text.append(self._marks(threat.attackers), style=theme.ENEMY_PIECE)
-            text.append(" · held by ", style=theme.DIM)
-            text.append(self._marks(threat.defenders), style=theme.TEXT)
-        return text
-
-    def _enemy_piece_detail(self, square: chess.Square) -> Optional[Text]:
-        chance = self.report.opportunity_at(square)
-        text = Text()
-        if chance is not None:
-            text.append("> ", style=theme.GOLD)
-            text.append(self._marks(chance.takers), style=theme.TEXT)
-            text.append(" takes it free" if chance.free else " wins %d" % chance.gain,
-                        style=theme.GOLD)
-            return text
-
-        guards = cover(self.fight.board, square, chess.BLACK)
-        if not guards:
-            return None
-        text.append("guarded by ", style=theme.DIM)
-        text.append(self._marks(guards), style=theme.ENEMY_PIECE)
-        return text
-
-    def _marks(self, squares, limit: int = 2) -> str:
-        """`♞g5 ♝c4 +1` -- the panel is 29 columns, so long lists get counted."""
-        head = " ".join(self._mark(square) for square in squares[:limit])
-        extra = len(squares) - limit
-        return "%s +%d" % (head, extra) if extra > 0 else head
+        return Text(chess.square_name(square), style=theme.GHOST)
 
     def _bench_inspect(self) -> Text:
         inventory = self.run.army.inventory

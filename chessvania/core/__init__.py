@@ -29,7 +29,6 @@ Module map
   placement   choosing where the enemy stands, given a deployment
   ladder      the enemy library's shape: formations, tiers, the 9-fight ramp
   fight       one encounter; the opponent is injected, so no engine import
-  threat      a static read of what is attacked, framed around permanent loss
   postfight   the payout -> shop -> sell -> swap phase machine
   run         RunState and the phase machine the app renders
 """

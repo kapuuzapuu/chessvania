@@ -37,7 +37,6 @@ def test_core_modules_exist():
     expected = {
         "army.py", "economy.py", "fight.py", "ladder.py",
         "legality.py", "placement.py", "postfight.py", "run.py",
-        "threat.py",
     }
     assert expected <= {p.name for p in CORE.glob("*.py")}
 

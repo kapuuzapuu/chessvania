@@ -160,47 +160,6 @@ When a pawn reaches the last rank a promotion picker opens — `← →` to choo
 or press `q` / `r` / `b` / `n` directly, then `enter`. It never auto-queens, and
 `esc` backs out of the move entirely.
 
-## The threat readout
-
-Because captures are permanent, the question worth answering every move is *what
-dies if I ignore this*. The panel under the board answers it, and the board
-itself is marked to match.
-
-| mark | | |
-|---|---|---|
-| `+` | **check** | on a dark red square |
-| `!` | **hanging** — attacked with nothing defending it, so it is taken for free and gone for the run | piece tinted red |
-| `-` | **losing trade** — defended, but the cheapest attacker is worth less than the piece | piece tinted amber |
-
-Attacked-but-held is deliberately unmarked: it's the normal state of most of a
-position, and a board that annotates everything annotates nothing. Every warning
-has a glyph as well as a colour, so nothing is lost on a monochrome terminal.
-
-```
-THREAT             IN CHECK
-+ ♜b1 checks          1 out
-! ♖h1 free to ♜h8        -5
-- ♘c3 trades down        -2
-> ♜b1 is free            +5
-```
-
-The right-hand number is material you lose for good. When you're in check it
-counts your legal replies instead — *1 out* plays very differently from *12*.
-The `>` line is the other direction: the best capture available to you right
-now, built from your actual legal moves, so pins and checks are already
-accounted for.
-
-Move the cursor and the inspect panel expands whatever it's over — who attacks a
-piece, who holds it, whether an enemy piece is guarded, and for an empty square
-whether it's covered at all before you step onto it.
-
-It's a static one-ply read, not a search: geometric attackers, cheapest-attacker
-trade arithmetic, and pinned defenders discounted. It errs toward warning you,
-because over-warning costs a cautious move and under-warning costs a piece for
-the rest of the run. The rules live in
-[core/threat.py](chessvania/core/threat.py), the appearance in
-[ui/theme.py](chessvania/ui/theme.py).
-
 ## The rules
 
 **Your army persists.** Pieces carry across the whole run, and anything the enemy
@@ -288,7 +247,6 @@ chessvania/
 │   ├── economy.py      payouts, prices, sale values (ints in, ints out)
 │   ├── placement.py    where the enemy stands, given your deployment
 │   ├── fight.py        one encounter; the opponent is injected
-│   ├── threat.py       what is attacked, framed around permanent loss
 │   ├── ladder.py       builds the 9-fight sequence and its Elo ramp
 │   ├── postfight.py    payout → shop → sell → swap state machine
 │   ├── progress.py     achievements, unlocks, the bestiary record

@@ -12,9 +12,8 @@ from textual.widgets import Button, Static
 from chessvania import config
 from chessvania.app import ChessvaniaApp
 from chessvania.core.postfight import Step
-from chessvania.core.threat import Danger
 from chessvania.ui import theme
-from chessvania.ui.screens.fight import STATUS_WIDTH, FightScreen, Zone
+from chessvania.ui.screens.fight import FightScreen, Zone
 from chessvania.ui.widgets.board_view import CELL_LADDER, BoardView, board_size
 from chessvania.ui.screens.loadout import LoadoutScreen
 from chessvania.ui.screens.postfight import PostFightScreen
@@ -348,135 +347,24 @@ def test_escape_cancels_a_promotion():
     drive(scenario)
 
 
-async def threat_screen(pilot, app, player_fen, enemy_fen):
-    """Drop a crafted position onto a live fight screen."""
-    from chessvania.core.army import army_from_fen
-    from chessvania.core.fight import Fight
-
-    await start_fight(pilot, app)
-    run = app.run_state
-    run.army = army_from_fen(player_fen)
-    fight = Fight(army=run.army, enemy_fen=enemy_fen, opponent=FakeEngine(),
-                  enemy_name="Bulwark")
-    app.switch_screen(FightScreen(run, fight))
-    await pilot.pause()
-    return app.screen
-
-
-# a1 rook hangs to the bishop on f6, and nothing else is touched
-HANGING = ("8/8/8/8/8/8/4PPPP/R3K3 w - - 0 1", "4k3/8/5b2/8/8/8/8/8 w - - 0 1")
-# in check from b1, three pieces hanging, and the checker is itself free
-CROWDED = ("8/8/8/8/8/8/1PPPPPP1/R3K2R w - - 0 1",
-           "4k2r/8/1b1b1b2/8/8/8/8/1r6 w - - 0 1")
-
-
-def test_the_status_panel_reads_out_threats():
-    """It used to hold keyboard hints, which say nothing about what is at stake."""
-
+def test_the_inspect_panel_names_the_piece_under_the_cursor():
+    """Inspect reports what a piece is and what it has survived. Nothing else."""
     async def scenario():
         app = ChessvaniaApp(engine=FakeEngine(), seed=1)
         async with app.run_test(size=MIN_TERMINAL) as pilot:
-            screen = await threat_screen(pilot, app, *HANGING)
-            panel = screen._status_text().plain
+            screen = await start_fight(pilot, app)
 
-            assert "THREAT" in panel
-            assert "5 at risk" in panel          # the whole rook, for good
-            assert "♖a1" in panel and "♝f6" in panel
+            king = screen.fight.board.king(chess.WHITE)
+            await move_cursor_to(pilot, screen, king)
+            panel = screen.query_one("#inspect").render().plain
+            assert "King" in panel and "yours" in panel
 
-    drive(scenario)
-
-
-def test_a_hanging_piece_is_marked_on_the_board():
-    async def scenario():
-        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test(size=MIN_TERMINAL) as pilot:
-            screen = await threat_screen(pilot, app, *HANGING)
-            board = screen.query_one("#board", BoardView)
-
-            assert board.threats[chess.A1].level is Danger.HANGING
-            # The board draws sprites, not glyphs, so there is no ♖ to anchor
-            # on -- the marker rides the trailing column of the cell's top row.
-            marker = theme.threat_marker(Danger.HANGING)
-            assert marker in board._render_board().plain
-
-    drive(scenario)
-
-
-def test_check_is_called_out_with_a_way_out_count():
-    async def scenario():
-        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test(size=MIN_TERMINAL) as pilot:
-            screen = await threat_screen(pilot, app, *CROWDED)
-            panel = screen._status_text().plain
-
-            assert "IN CHECK" in panel
-            assert "♜b1 checks" in panel
-            assert "out" in panel
-            assert screen.query_one("#board", BoardView).threats[chess.E1].level is Danger.CHECK
-
-    drive(scenario)
-
-
-def test_the_inspect_panel_explains_the_square_under_the_cursor():
-    async def scenario():
-        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test(size=MIN_TERMINAL) as pilot:
-            screen = await threat_screen(pilot, app, *CROWDED)
-
-            await move_cursor_to(pilot, screen, chess.A1)
-            assert "takes it for free" in screen.query_one("#inspect").render().plain
-
-            await move_cursor_to(pilot, screen, chess.B1)  # the enemy rook
-            assert "takes it free" in screen.query_one("#inspect").render().plain
-
-            await move_cursor_to(pilot, screen, chess.D4)  # an empty square
-            assert "covered by" in screen.query_one("#inspect").render().plain
-
-    drive(scenario)
-
-
-def test_the_threat_panel_never_wraps_or_falls_off_the_fold():
-    """Every row is built to 27 columns for a 28-column centre panel.
-
-    A wrapped row silently doubles the panel's height, and the board is directly
-    above it -- so a wrap here is how the board goes off a 104x30 terminal.
-    """
-
-    async def scenario():
-        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-        async with app.run_test(size=(104, 36)) as pilot:
-            screen = await threat_screen(pilot, app, *CROWDED)
-
-            for line in screen._threat_panel().plain.split("\n"):
-                assert len(line) <= STATUS_WIDTH, "too wide for the column: %r" % line
-            assert len(screen._hint_line().plain) <= STATUS_WIDTH
-
-            status = screen.query_one("#status")
-            assert status.region.y + status.region.height <= screen.size.height
-
-    drive(scenario)
-
-
-def test_the_threat_panel_survives_a_notice_and_the_dev_bar():
-    """The busiest this panel gets: a casualty notice, a full threat list and
-    an expanded diagnostics strip all competing for the same screen."""
-
-    async def scenario():
-        config.DEV_MODE = True
-        try:
-            app = ChessvaniaApp(engine=FakeEngine(), seed=1)
-            async with app.run_test(size=minimum_terminal(dev_mode=True)) as pilot:
-                screen = await threat_screen(pilot, app, *CROWDED)
-                await pilot.press("f1")  # expand the dev bar
-                screen.set_status("Bulwark takes your rook — gone for good")
-                await pilot.pause()
-
-                status = screen.query_one("#status")
-                assert status.region.y + status.region.height <= screen.size.height
-                floor_h = board_size(*CELL_LADDER[0])[1]
-                assert screen.query_one("#board").region.height == floor_h
-        finally:
-            config.DEV_MODE = False
+            empty = chess.D5
+            await move_cursor_to(pilot, screen, empty)
+            panel = screen.query_one("#inspect").render().plain
+            assert "d5" in panel
+            for gone in ("covered by", "uncontested", "takes it", "guarded by"):
+                assert gone not in panel, "inspect is reading the board: %r" % gone
 
     drive(scenario)
 

@@ -9,7 +9,6 @@ from rich.text import Text
 from textual.message import Message
 from textual.widgets import Static
 
-from ...core.threat import Danger, Threat
 from .. import piece_art, theme
 
 LEFT_MARGIN = 2
@@ -91,7 +90,6 @@ class BoardView(Static):
         self.flash_square: Optional[chess.Square] = None
         self.cursor: Optional[chess.Square] = None
         self.cursor_active = True
-        self.threats: Dict[chess.Square, Threat] = {}
         self.flip = False
         self.cell_w, self.cell_h = CELL_LADDER[0]
 
@@ -124,17 +122,6 @@ class BoardView(Static):
         self.selected = selected
         self.targets = set(targets)
         self.targets_are_captures = captures
-        self.redraw()
-
-    def set_threats(self, by_square: Optional[Dict[chess.Square, Threat]]) -> None:
-        """Overlay `core.threat`'s per-square verdicts.
-
-        Only the player's squares are marked. The enemy's opportunities are real
-        information too, but a 3-column cell can carry one annotation before it
-        stops being a chessboard -- and the half worth spending it on is the half
-        that is permanent.
-        """
-        self.threats = dict(by_square or {})
         self.redraw()
 
     def set_cursor(self, square: Optional[chess.Square], active: bool = True) -> None:
@@ -199,7 +186,6 @@ class BoardView(Static):
         rank = chess.square_rank(square)
         piece = self.board.piece_at(square)
         is_target = square in self.targets
-        threat = self.threats.get(square)
 
         light = (file + rank) % 2
         background = theme.SQ_LIGHT if light else theme.SQ_DARK
@@ -208,10 +194,6 @@ class BoardView(Static):
             self.last_move.to_square,
         ):
             background = theme.SQ_MOVE
-        if threat is not None and threat.level is Danger.CHECK:
-            # Sits under the move-composing highlights below on purpose: while
-            # you are picking a destination, the destination is what matters.
-            background = theme.SQ_CHECK
         if is_target:
             # Captures read red, quiet moves green -- the cost is visible before
             # you commit to the move. A swap-phase target is never a capture.
@@ -239,13 +221,6 @@ class BoardView(Static):
             else:
                 foreground = theme.enemy_color(piece.piece_type)
 
-        marker = theme.threat_marker(threat.level) if threat is not None else None
-        if threat is not None and threat.level is not Danger.CHECK:
-            # Tint the piece itself so danger is legible without hunting for the
-            # marker. The king is exempt: it already sits on a red square, and
-            # red-on-red would hide the one piece you cannot afford to lose.
-            foreground = theme.threat_color(threat.level) or foreground
-
         if square == self.flash_square:
             foreground = "#ffffff"
 
@@ -264,10 +239,6 @@ class BoardView(Static):
         if sprite is not None:
             chars = list(sprite[sub_row])
             styles = ["%s on %s" % (foreground, background)] * self.cell_w
-            if marker is not None and sub_row == 0:
-                chars[-1] = marker
-                styles[-1] = "%s on %s" % (
-                    theme.threat_color(threat.level), background)
             cell = Text()
             for char, style in zip(chars, styles):
                 cell.append(char, style=style)
@@ -287,10 +258,6 @@ class BoardView(Static):
         middle = self.cell_w // 2
         chars[middle] = glyph
         styles[middle] = "%s on %s" % (foreground, background)
-
-        if marker is not None:
-            chars[-1] = marker
-            styles[-1] = "%s on %s" % (theme.threat_color(threat.level), background)
 
         for char, style in zip(chars, styles):
             cell.append(char, style=style)
