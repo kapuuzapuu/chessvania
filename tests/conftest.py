@@ -26,3 +26,6 @@ def silent_audio(monkeypatch):
     from chessvania.audio import player
 
     monkeypatch.setattr(player, "_playsound", None)
+    # And hold every `play` call to a real sound name while we are here. The
+    # call sites pass bare strings that nothing else validates.
+    monkeypatch.setattr(player, "STRICT", True)

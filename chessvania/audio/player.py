@@ -25,6 +25,17 @@ try:  # pragma: no cover - import guard, exercised by not having the package
 except Exception:  # noqa: BLE001 - any import failure means no audio, not a crash
     _playsound = None
 
+STRICT = False
+"""Raise on a sound name that does not exist, instead of ignoring it.
+
+OFF IN THE GAME, because a missing blip must never take a run down.
+
+ON IN TESTS, because nothing else checks the link between a `play` call and
+the `SOUNDS` table. Call sites pass bare strings, a typo plays nothing and
+reports nothing, and grep cannot audit them -- several names are chosen at
+runtime, as in `play_sound("win" if won else "defeat")`. Turning this on in
+`tests/conftest.py` means any typo on a tested path fails the suite."""
+
 
 class Audio:
     """Plays the sound set. Construct one per app; the UI calls `play`."""
@@ -54,9 +65,17 @@ class Audio:
 
     def play(self, name: str) -> bool:
         """Fire and forget. Returns whether a sound was actually started."""
-        if not self.enabled or not self.available or self.volume <= 0:
-            return False
         if name not in SOUNDS:
+            # Checked before the enabled/volume gates: a typo is a bug whether
+            # or not the player happens to have sound turned on.
+            if STRICT:
+                raise KeyError(
+                    "no sound named %r -- the game would have played nothing "
+                    "and said nothing. Known sounds: %s"
+                    % (name, ", ".join(sorted(SOUNDS)))
+                )
+            return False
+        if not self.enabled or not self.available or self.volume <= 0:
             return False
         try:
             path = self._file_for(name)
@@ -94,5 +113,7 @@ class SilentAudio(Audio):
         return False
 
     def play(self, name: str) -> bool:
+        if STRICT and name not in SOUNDS:
+            raise KeyError("no sound named %r" % name)
         self.played.append(name)
         return False

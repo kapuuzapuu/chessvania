@@ -99,10 +99,39 @@ def test_a_backend_that_throws_is_swallowed(monkeypatch):
     assert audio.play("select") is False, "a dead backend must not propagate"
 
 
-def test_an_unknown_sound_is_ignored(monkeypatch):
+def test_an_unknown_sound_is_ignored_in_the_game(monkeypatch):
+    """A typo must never take a run down, however much it deserves to."""
     monkeypatch.setattr(player_module, "_playsound", lambda *a, **k: None)
+    monkeypatch.setattr(player_module, "STRICT", False)   # as it ships
     audio = Audio(enabled=True, volume=80)
     assert audio.play("no-such-sound") is False
+
+
+def test_an_unknown_sound_raises_under_test(monkeypatch):
+    """Nothing else links a `play` call to the SOUNDS table.
+
+    Call sites pass bare strings and several are chosen at runtime, as in
+    `play_sound("win" if won else "defeat")`, so grep cannot audit them. The
+    conftest turns STRICT on for the whole suite, which makes any typo on a
+    tested path a failure instead of a silence.
+    """
+    monkeypatch.setattr(player_module, "_playsound", lambda *a, **k: None)
+    audio = Audio(enabled=True, volume=80)
+    with pytest.raises(KeyError, match="no sound named"):
+        audio.play("no-such-sound")
+
+
+def test_strict_catches_a_typo_even_with_sound_switched_off(monkeypatch):
+    """The name is wrong whether or not this player has sound enabled."""
+    monkeypatch.setattr(player_module, "_playsound", None)
+    audio = Audio(enabled=False, volume=0)
+    with pytest.raises(KeyError):
+        audio.play("capturee")
+
+
+def test_the_silent_player_is_strict_too():
+    with pytest.raises(KeyError):
+        SilentAudio().play("nope")
 
 
 def test_disabled_and_zero_volume_both_stay_quiet(monkeypatch):
