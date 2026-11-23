@@ -69,3 +69,31 @@ def test_core_does_not_reach_for_the_speakers():
             if "audio" in module.lstrip("."):
                 offenders.append("%s imports %s" % (path.name, module))
     assert not offenders, "core must not depend on audio: %s" % offenders
+
+
+def test_only_persistence_resolves_a_save_path():
+    """Durable state has exactly one owner, and it is not a documentation claim.
+
+    The weaker version of this rule -- "the only layer that touches a
+    filesystem" -- was a statement about a mechanism, and it quietly went false
+    when the audio player started caching rendered sounds to a temp directory.
+    Scratch files are not state. What actually matters is that nothing outside
+    `persistence` can decide where saved data lives, and that is checkable.
+    """
+    package = pathlib.Path(__file__).resolve().parent.parent / "chessvania"
+    owned = package / "persistence"
+    reserved = ("data_dir", "profile_path", "run_path",
+                "platformdirs", "CHESSVANIA_DATA_DIR")
+
+    offenders = []
+    for path in sorted(package.rglob("*.py")):
+        if owned in path.parents:
+            continue
+        text = path.read_text()
+        for name in reserved:
+            if name in text:
+                offenders.append("%s mentions %s"
+                                 % (path.relative_to(package), name))
+    assert not offenders, (
+        "only persistence may resolve a save path: %s" % offenders
+    )
