@@ -11,9 +11,14 @@ from textual.widgets import Static
 
 from .. import piece_art, theme
 
-LEFT_MARGIN = 2
-RIGHT_MARGIN = 2
-HEADER_ROWS = 1
+# The board has no gutters. Ranks and files are written INSIDE the corner of
+# an edge square, the way a printed diagram or a chess site does it, which
+# buys back four columns and a row for the board itself.
+#
+# It works because `ui.piece_art` guarantees -- and `tests/test_piece_art.py`
+# enforces -- that every sprite keeps its outer column on each side clear and
+# a clear character row on top. The rank's corner (top right) and the file's
+# corner (bottom left) are exactly the two those rules protect.
 
 TARGET_DOT = "·"
 """Marks an empty square you could move to, on an odd-height cell."""
@@ -46,7 +51,7 @@ CELL_WIDTH = CELL_LADDER[0][0]
 
 def board_size(cell_w: int, cell_h: int):
     """(columns, rows) the widget needs to draw a board at this cell size."""
-    return (8 * cell_w + LEFT_MARGIN + RIGHT_MARGIN, 8 * cell_h + HEADER_ROWS)
+    return (8 * cell_w, 8 * cell_h)
 
 
 def choose_cell(available_w: int, available_h: int):
@@ -153,33 +158,36 @@ class BoardView(Static):
         """Which sub-row of a tall cell carries the piece.
 
         Biased upward rather than centred so that an even-height cell puts its
-        padding *below* the glyph. Centring would leave a blank row between the
-        file header and rank 8, which reads as the board having slipped down.
+        padding *below* the glyph. Centring would leave a blank row along the
+        top edge, which reads as the board having slipped down.
         """
         return (self.cell_h - 1) // 2
 
     def _render_board(self) -> Text:
         text = Text()
-        files = "abcdefgh"
         ranks = range(7, -1, -1) if not self.flip else range(8)
-
-        text.append(" " * LEFT_MARGIN)
-        for f in files:
-            text.append(f.center(self.cell_w), style=theme.GHOST)
-        text.append("\n")
-
-        for rank in ranks:
+        for row, rank in enumerate(ranks):
             for sub_row in range(self.cell_h):
-                labelled = sub_row == self.glyph_row
-                label = "%d " % (rank + 1) if labelled else "  "
-                text.append(label, style=theme.GHOST)
+                if row or sub_row:
+                    text.append("\n")
                 for file in range(8):
                     text.append_text(self._cell(chess.square(file, rank), sub_row))
-                text.append(" %d" % (rank + 1) if labelled else "  ",
-                            style=theme.GHOST)
-                text.append("\n")
-
         return text
+
+    def _coordinate(self, square: chess.Square, sub_row: int):
+        """(column, character) this cell corner carries, or None.
+
+        The rank goes in the top-right of the last file drawn and the file
+        letter in the bottom-left of the nearest rank -- the two corners
+        `piece_art` keeps clear of sprite, so a label never lands on a piece.
+        """
+        file = chess.square_file(square)
+        rank = chess.square_rank(square)
+        if sub_row == 0 and file == 7:
+            return self.cell_w - 1, "%d" % (rank + 1)
+        if sub_row == self.cell_h - 1 and rank == (7 if self.flip else 0):
+            return 0, "abcdefgh"[file]
+        return None
 
     def _cell(self, square: chess.Square, sub_row: int = 0) -> Text:
         file = chess.square_file(square)
@@ -236,29 +244,33 @@ class BoardView(Static):
             if self.cursor_active and square != self.flash_square:
                 background = theme.SQ_CURSOR
 
+        # One code path for all three kinds of row -- sprite, empty, and the
+        # glyph fallback -- because the coordinate overlay has to apply to
+        # every one of them and a cell that returned early would skip it.
         if sprite is not None:
             chars = list(sprite[sub_row])
             styles = ["%s on %s" % (foreground, background)] * self.cell_w
-            cell = Text()
-            for char, style in zip(chars, styles):
-                cell.append(char, style=style)
-            return cell
-
-        cell = Text()
-        if sub_row != self.glyph_row:
+        elif sub_row != self.glyph_row:
             # A tall cell is one square: only the middle row carries anything,
             # the rest is the square's colour.
-            cell.append(" " * self.cell_w, style="on %s" % background)
-            return cell
+            chars = [" "] * self.cell_w
+            styles = ["on %s" % background] * self.cell_w
+        else:
+            # Build the row as characters so every cell width is laid out the
+            # same way: glyph in the middle, decoration on the edges.
+            chars = [" "] * self.cell_w
+            styles = ["on %s" % background] * self.cell_w
+            middle = self.cell_w // 2
+            chars[middle] = glyph
+            styles[middle] = "%s on %s" % (foreground, background)
 
-        # Build the row as characters so every cell width is laid out the same
-        # way: glyph in the middle, decoration on the edges.
-        chars = [" "] * self.cell_w
-        styles = ["on %s" % background] * self.cell_w
-        middle = self.cell_w // 2
-        chars[middle] = glyph
-        styles[middle] = "%s on %s" % (foreground, background)
+        coordinate = self._coordinate(square, sub_row)
+        if coordinate is not None:
+            column, mark = coordinate
+            chars[column] = mark
+            styles[column] = "%s on %s" % (theme.COORD, background)
 
+        cell = Text()
         for char, style in zip(chars, styles):
             cell.append(char, style=style)
         return cell
@@ -266,16 +278,12 @@ class BoardView(Static):
     # -- mouse -----------------------------------------------------------
 
     def _square_at(self, x: int, y: int) -> Optional[chess.Square]:
-        row = y - HEADER_ROWS
-        if row < 0:
+        if x < 0 or y < 0:
             return None
-        rank_index = row // self.cell_h
+        rank_index = y // self.cell_h
         if not 0 <= rank_index <= 7:
             return None
-        column = x - LEFT_MARGIN
-        if column < 0:
-            return None
-        file = column // self.cell_w
+        file = x // self.cell_w
         if not 0 <= file <= 7:
             return None
         rank = rank_index if self.flip else 7 - rank_index

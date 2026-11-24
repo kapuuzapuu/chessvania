@@ -33,7 +33,7 @@ from ..widgets.bench import COLUMNS as BENCH_COLUMNS
 from ..widgets.bench import BenchView
 from ..widgets.board_view import BoardView
 from ..widgets.devbar import POSTFIGHT_KEYS, DevBar
-from ..widgets.topbar import TopBar
+from ..widgets.road import Road
 
 RAIL_MIN_WIDTH = 23
 RAIL_MAX_WIDTH = 40
@@ -80,9 +80,9 @@ class PostFightScreen(Screen):
     # -- layout ----------------------------------------------------------
 
     def compose(self) -> ComposeResult:
-        yield TopBar(id="topbar")
         with Horizontal(id="main"):
             with Vertical(id="left"):
+                yield Road(id="road")
                 yield Static(id="bench-label")
                 yield BenchView(id="bench")
                 yield Button("sell", id="act-sell")
@@ -102,7 +102,6 @@ class PostFightScreen(Screen):
 
     def on_mount(self) -> None:
         self.query_one("#devbar", DevBar).display = config.DEV_MODE
-        self.query_one("#topbar", TopBar).show(self.run, "post-fight")
         # The screen owns every key, so buttons must not swallow enter/arrows.
         # The two verb buttons are deliberately not in the tab cycle either:
         # the keyboard already has enter and s for them, and they are there to
@@ -128,6 +127,8 @@ class PostFightScreen(Screen):
         army = self.run.army
         if self.zone not in self._zones():
             self.zone = Zone.CONTROLS
+
+        self.query_one("#road", Road).show(self.run)
 
         board_view = self.query_one("#board", BoardView)
         board_view.set_board(self._army_board(), self._veterancy_map())
@@ -329,7 +330,7 @@ class PostFightScreen(Screen):
                 config.GOLD_GLYPH, self.run.gold + payout.total),
                 style=theme.GOLD)
             if payout.skip_bonus:
-                text.append("  banked +%d\n" % payout.skip_bonus, style=theme.GREEN)
+                text.append("  skip bonus +%d\n" % payout.skip_bonus, style=theme.GREEN)
             if self.phase.casualties:
                 lost = Text("  lost  ", style=theme.DIM)
                 for piece in self.phase.casualties:
@@ -521,7 +522,6 @@ class PostFightScreen(Screen):
         if not config.DEV_MODE:
             return
         self.run.gold += config.DEV_GOLD_STEP
-        self.query_one("#topbar", TopBar).tick_gold_to(self.run.gold)
         self._say("dev · +%d gold" % config.DEV_GOLD_STEP, theme.GOLD)
         self.refresh_all()
 
@@ -594,7 +594,6 @@ class PostFightScreen(Screen):
         elif button_id == "finish":
             if self.phase.step is Step.PAYOUT:
                 payout = self.phase.collect_payout()
-                self.query_one("#topbar", TopBar).tick_gold_to(self.run.gold)
                 self._say("+%s%d" % (config.GOLD_GLYPH, payout.total), theme.GOLD)
             else:
                 self.phase.finish()

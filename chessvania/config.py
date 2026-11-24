@@ -45,7 +45,7 @@ than a jump cut, short enough to blitz a run."""
 # Army limits
 # --------------------------------------------------------------------------
 
-INVENTORY_CAP = 16
+INVENTORY_CAP = 9
 """Hard cap on bench slots. Separate storage from the board."""
 
 MAX_SWAPS = 3
@@ -73,9 +73,14 @@ PAYOUT_TIERS: Tuple[Tuple[int, int], ...] = (
     (10, 5),
     (20, 4),
     (30, 3),
-    (45, 2),
+    (40, 2),
 )
-"""(max player moves, gold) -- first tier whose threshold is met wins."""
+"""(max player moves, gold) -- first tier whose threshold is met wins.
+
+Every tier spans the same TEN moves. The live readout draws one tick per
+move of the tier you are standing in, so an uneven span would make the bar
+change length as you fell through the ladder -- the only thing on that panel
+that is allowed to move is the boundary between spent and unspent."""
 
 PAYOUT_FALLBACK = 1
 """Paid when the move count exceeds every tier."""
@@ -107,10 +112,17 @@ you keep the gold AND the next win pays more."""
 ANTES = 3
 FIGHTS_PER_ANTE = 3
 
-TIER_LOW = "low"
-TIER_MID = "mid"
-TIER_MINIBOSS = "mini-boss"
-TIER_FINAL = "final-boss"
+TIER_I = "I"
+TIER_II = "II"
+TIER_III = "III"
+TIER_IV = "IV"
+"""The four enemy grades, hardest last.
+
+The VALUE is the numeral the player sees, so there is one vocabulary rather
+than an internal name and a display name that can drift apart. Roman here,
+because the road numbers its antes in arabic -- a fight is "tier III in ante
+2", and the two never read as the same thing.
+"""
 
 ELO_RAMP: Dict[int, Tuple[int, int, int]] = {
     1: (700, 900, 1100),

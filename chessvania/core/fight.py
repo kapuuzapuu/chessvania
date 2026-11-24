@@ -84,7 +84,7 @@ class Fight:
     enemy_fen: str
     opponent: Opponent
     enemy_name: str = "the enemy"
-    tier: str = config.TIER_LOW
+    tier: str = config.TIER_I
     elo: int = 1000
 
     board: chess.Board = field(init=False)

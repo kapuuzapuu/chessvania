@@ -73,7 +73,7 @@ class Piece:
     def veterancy(self) -> int:
         """0 = fresh, 1 = seasoned, 2 = veteran.
 
-        Purely cosmetic today: it drives the bench tint and the inspect line.
+        Purely cosmetic today: it drives the bench tint and the board tint.
         Nothing in the rules reads it yet, but it has to be *tracked* from the
         first fight or it can never be added later.
         """

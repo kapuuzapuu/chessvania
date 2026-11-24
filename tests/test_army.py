@@ -29,8 +29,8 @@ def test_inventory_is_separate_from_the_board_cap():
     army = army_from_fen(TEXTBOOK)
     for _ in range(config.INVENTORY_CAP):
         army.add_to_inventory(Piece(chess.ROOK))
-    assert army.deployed_count == 16
-    assert army.inventory_count == 16
+    assert army.deployed_count == 16              # the board's cap, a chess rule
+    assert army.inventory_count == config.INVENTORY_CAP   # the bench's, ours
     assert army.violations() == []
 
 
@@ -104,3 +104,13 @@ def test_copy_preserves_identity():
     ]
     clone.deployment[chess.E1].fights_survived = 9
     assert army.deployment[chess.E1].fights_survived == 0
+
+
+def test_the_bench_is_a_whole_rectangle():
+    """The cursor walks rows and columns, so a cap that does not divide by
+    the row width leaves unreachable slots in the last row."""
+    from chessvania.ui.widgets.bench import COLUMNS
+
+    assert config.INVENTORY_CAP % COLUMNS == 0, (
+        "%d slots across %d columns leaves a ragged row"
+        % (config.INVENTORY_CAP, COLUMNS))

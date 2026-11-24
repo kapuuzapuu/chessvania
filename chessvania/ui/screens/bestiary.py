@@ -24,7 +24,7 @@ from ...data.enemies import POOLS
 from ...data.loadouts import LOADOUTS
 from .. import theme
 
-TIER_ORDER = (config.TIER_LOW, config.TIER_MID, config.TIER_MINIBOSS, config.TIER_FINAL)
+TIER_ORDER = (config.TIER_I, config.TIER_II, config.TIER_III, config.TIER_IV)
 
 BLURB_WIDTH = 28
 """Kept under the column's usable width, or the panel re-wraps our wrapped
@@ -103,7 +103,7 @@ class BestiaryScreen(Screen):
         for tier in TIER_ORDER:
             pool = POOLS.get(tier, [])
             seen = sum(1 for f in pool if self.profile.knows(f.name))
-            text.append("%s " % tier, style=theme.DIM)
+            text.append("TIER %s " % tier, style=theme.DIM)
             text.append("%d/%d\n" % (seen, len(pool)), style=theme.GHOST)
 
             for formation in pool:

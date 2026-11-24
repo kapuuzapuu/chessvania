@@ -161,7 +161,7 @@ def test_clicking_lands_on_the_right_square_at_every_size():
 
 def _overflow(screen, size):
     worst_w = worst_h = 0
-    for widget_id in ("#topbar", "#left", "#center", "#board", "#right"):
+    for widget_id in ("#road", "#left", "#center", "#board", "#right"):
         region = screen.query_one(widget_id).region
         worst_w = max(worst_w, region.x + region.width)
         worst_h = max(worst_h, region.y + region.height)
@@ -262,8 +262,8 @@ def test_the_destination_marker_sits_at_the_cell_centre():
                 assert len(inked) == 1, (
                     "cell %dx%d marker should be one row tall, got %s"
                     % (cell_w, cell_h, inked))
-                # strip the file header, then ask where it falls inside its cell
-                assert (inked[0] - 1) % cell_h == view.glyph_row, (
+                # no header row any more: the board starts at line 0
+                assert inked[0] % cell_h == view.glyph_row, (
                     "cell %dx%d marker is not on the middle row" % (cell_w, cell_h))
 
     drive(scenario)
@@ -285,7 +285,131 @@ def test_the_marker_is_centred_horizontally_too():
                 for row in view._render_board().plain.split("\n"):
                     for mark in ("·", "▄", "▀"):
                         if mark in row:
-                            assert row.index(mark) - 2 == cell_w // 2, (
+                            assert row.index(mark) == cell_w // 2, (
                                 "cell %dx%d marker off centre" % (cell_w, cell_h))
 
     drive(scenario)
+
+
+# -- the road ------------------------------------------------------------
+
+
+def _road_frames():
+    """Render the road at every position in a run, inside a live app.
+
+    Textual widgets need a running loop to exist at all, so these go through
+    `run_test` like every other widget test here.
+    """
+    from chessvania.ui.widgets.road import Road
+
+    frames = []
+
+    async def scenario():
+        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
+        async with app.run_test(size=FLOOR) as pilot:
+            run = make_run()
+            await app.push_screen(FightScreen(run, make_fight(run)))
+            await pilot.pause()
+            road = app.screen.query_one("#road", Road)
+            for position in range(len(run.ladder) + 1):
+                run.fight_index = position
+                frames.append(road._build(run).plain)
+
+    drive(scenario)
+    return frames
+
+
+def test_the_road_shows_nine_fights_across_three_antes():
+    from chessvania import config
+    from chessvania.ui.widgets.road import BOSS, BOSS_AHEAD, FIGHT_AHEAD
+
+    rows = _road_frames()[0].rstrip("\n").split("\n")
+    assert len(rows) == 1 + config.ANTES, "a header and one row per ante"
+    nodes = sum(r.count(BOSS) + r.count(BOSS_AHEAD) + r.count(FIGHT_AHEAD)
+                + r.count("■") for r in rows[1:])
+    assert nodes == config.ANTES * config.FIGHTS_PER_ANTE
+
+
+def test_the_road_marks_where_you_are():
+    frames = _road_frames()[:9]
+    assert len(set(frames)) == 9, "every fight should look different"
+
+
+def test_the_road_fills_in_as_you_clear_fights():
+    """The map used to carry a "4/9" as well. It does not any more, so the
+    thing that counter asserted now has to be asserted of the nodes."""
+    from chessvania.ui.widgets.road import BOSS, FIGHT_DONE
+
+    total = config.ANTES * config.FIGHTS_PER_ANTE
+    for position, frame in enumerate(_road_frames()):
+        filled = frame.count(FIGHT_DONE) + frame.count(BOSS)
+        assert filled == min(position + 1, total), (
+            "at fight %d the map shows %d filled nodes" % (position, filled))
+
+
+def test_the_road_is_flush_with_the_column():
+    """Same left margin as the bench under it, or the column reads as two
+    lists that happen to be stacked."""
+    for row in _road_frames()[0].rstrip("\n").split("\n"):
+        assert not row.startswith(" "), "indented: %r" % row
+
+
+def test_the_road_fits_the_rail_it_is_drawn_in():
+    """17 columns, and the old top bar is not there to spill into."""
+    from chessvania.ui.layout import LEFT_COLUMN
+
+    for frame in _road_frames():
+        for line in frame.split("\n"):
+            assert len(line) <= LEFT_COLUMN, (
+                "%r is %d wide, rail is %d" % (line, len(line), LEFT_COLUMN))
+
+
+# -- board coordinates ---------------------------------------------------
+
+
+def test_a_coordinate_can_never_land_on_a_piece():
+    """Labels live in the two corners `piece_art` promises to keep clear.
+
+    That promise is what makes in-cell coordinates possible at all, and it is
+    enforced one module away -- so assert it here too, at the point that
+    depends on it. If a sprite ever grows into a corner this fails instead of
+    quietly swallowing a letter.
+    """
+    from chessvania.ui import piece_art
+
+    for cell_w, cell_h in CELL_LADDER:
+        for piece_type in (chess.PAWN, chess.KNIGHT, chess.BISHOP,
+                           chess.ROOK, chess.QUEEN, chess.KING):
+            sprite = piece_art.art_for(cell_w, cell_h, piece_type)
+            if sprite is None:
+                continue
+            assert sprite[0][cell_w - 1] == " ", (
+                "%dx%d piece %d has ink in the rank corner" % (cell_w, cell_h, piece_type))
+            assert sprite[cell_h - 1][0] == " ", (
+                "%dx%d piece %d has ink in the file corner" % (cell_w, cell_h, piece_type))
+
+
+def test_every_rank_and_file_is_labelled_exactly_once():
+    async def scenario():
+        app = ChessvaniaApp(engine=FakeEngine(), seed=1)
+        async with app.run_test(size=(160, 55)) as pilot:
+            run = make_run()
+            await app.push_screen(FightScreen(run, make_fight(run)))
+            await pilot.pause()
+            view = app.screen.query_one("#board", BoardView)
+
+            for cell_w, cell_h in CELL_LADDER:
+                view.cell_w, view.cell_h = cell_w, cell_h
+                view.board = chess.Board()
+                plain = view._render_board().plain
+                for mark in "12345678abcdefgh":
+                    assert plain.count(mark) == 1, (
+                        "cell %dx%d drew %r %d times"
+                        % (cell_w, cell_h, mark, plain.count(mark)))
+
+    drive(scenario)
+
+
+def test_the_board_spends_no_columns_on_gutters():
+    for cell_w, cell_h in CELL_LADDER:
+        assert board_size(cell_w, cell_h) == (8 * cell_w, 8 * cell_h)

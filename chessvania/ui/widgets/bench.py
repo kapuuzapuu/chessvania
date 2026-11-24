@@ -1,4 +1,4 @@
-"""The 16-slot inventory, drawn as a 4x4 grid of bench slots.
+"""The inventory, drawn as a square grid of bench slots.
 
 The bench carries no side ambiguity -- everything in it is yours -- so it is the
 one place veterancy colour can be loud without competing with the
@@ -17,7 +17,11 @@ from ... import config
 from ...core.army import Piece
 from .. import theme
 
-COLUMNS = 4
+COLUMNS = 3
+"""Slots per row. `config.INVENTORY_CAP` must divide by it exactly or the
+last row comes out short and its slots cannot be reached -- the cursor walks
+a rectangle, and `tests/test_army.py` fills the bench to the cap."""
+
 CELL_WIDTH = 4
 
 

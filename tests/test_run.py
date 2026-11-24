@@ -51,9 +51,9 @@ def test_tier_shape_within_each_ante():
 
 def test_the_run_ends_on_a_final_boss():
     ladder = make_ladder()
-    assert ladder[-1].tier == config.TIER_FINAL
+    assert ladder[-1].tier == config.TIER_IV
     assert ladder[-1].is_final
-    assert sum(1 for s in ladder if s.tier == config.TIER_MINIBOSS) == config.ANTES - 1
+    assert sum(1 for s in ladder if s.tier == config.TIER_III) == config.ANTES - 1
 
 
 def test_formations_match_their_tier():

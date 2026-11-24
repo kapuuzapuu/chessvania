@@ -92,9 +92,9 @@ def test_untouched_requires_no_casualties():
 def test_boss_achievement_needs_a_boss():
     profile = Profile()
     assert "first_boss" not in {a.id for a in evaluate(
-        event(profile, won_fight=True, tier=config.TIER_LOW))}
+        event(profile, won_fight=True, tier=config.TIER_I))}
     assert "first_boss" in {a.id for a in evaluate(
-        event(profile, won_fight=True, tier=config.TIER_MINIBOSS))}
+        event(profile, won_fight=True, tier=config.TIER_III))}
 
 
 def test_ante_up_fires_on_the_last_fight_of_an_ante():

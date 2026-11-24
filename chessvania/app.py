@@ -48,10 +48,9 @@ class ChessvaniaApp(App):
         color: #c3c8d2;
     }
 
-    #topbar {
-        height: 1;
-        padding: 0 1;
-        background: #0b0d12;
+    #road {
+        height: auto;
+        margin-bottom: 1;
     }
 
     #main {
@@ -84,12 +83,7 @@ class ChessvaniaApp(App):
     }
 
     #bench {
-        height: 4;
-    }
-
-    #bench-note {
-        margin-top: 1;
-        height: auto;
+        height: 3;
     }
 
     #act-sell {
@@ -134,9 +128,22 @@ class ChessvaniaApp(App):
         margin-bottom: 1;
     }
 
-    #logbox {
-        height: 1fr;
-        min-height: 6;
+    /* Height is set by ui.layout.scale_board, which rounds it to a whole
+       number of move rows. These three panels are fixed so the column does
+       not reflow when the purse gains a skip-bonus line. */
+    #enemy {
+        height: 4;
+        margin-bottom: 0;
+    }
+
+    #payout {
+        height: 6;
+        margin-bottom: 0;
+    }
+
+    #log {
+        height: 13;
+        margin-bottom: 0;
     }
 
     #rail {

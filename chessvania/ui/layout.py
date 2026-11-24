@@ -45,6 +45,34 @@ CHROME_ROWS = 3 + STATUS_MAX_ROWS
 """Rows the board never gets: the top bar, the padding above it, the
 status block's top margin, and the status block itself at full height."""
 
+ENEMY_PANEL_ROWS = 4
+PURSE_PANEL_ROWS = 6
+"""Outer heights of the two fixed panels above the scoresheet, borders in.
+
+Both are pinned in the CSS rather than left on `height: auto`, so the column
+below them does not move when the purse grows a skip-bonus line. Same narrow,
+deliberate duplication as the column widths above."""
+
+PANEL_GAP = 0
+"""Rows between the panels in the right-hand column.
+
+They are bordered, so they separate themselves; the blank row between them
+was costing the scoresheet a whole rung once the board reclaimed its gutters."""
+
+SHEET_CHROME = 3
+"""Rows a scoresheet spends on things that are not moves: two of border and
+the pinned `# WHITE BLACK` header."""
+
+SHEET_ROWS = (10, 15)
+"""Move rows the scoresheet may show, fewest first -- a ladder, like
+`CELL_LADDER`, not a range.
+
+Round numbers on purpose. Left to fill the column it drew 9 rows on the
+smallest terminal and 17 on a large one: both arbitrary, neither of them
+anything you could learn or rely on. Taking the largest rung that fits means
+the count only ever lands on a number that was chosen. The moves above the
+top rung are still written down, and the sheet scrolls back to them."""
+
 DEV_BAR_ROWS = 6
 """The docked diagnostics strip, when `DEV_MODE` is on.
 
@@ -90,4 +118,43 @@ def scale_board(screen) -> Tuple[int, int]:
     view.styles.width = width
     view.styles.height = height
     screen.query_one("#center").styles.width = width
+
+    # The panel column is pinned to the board's height rather than left to
+    # fill the screen. Its last panel is elastic, so on a tall terminal it
+    # grew past the bottom of the board and the two columns stopped lining
+    # up. The board is the tallest thing the layout is built around; nothing
+    # beside it should outrun it.
+    screen.query_one("#right").styles.height = height
+    # `query`, not `query_one`: the post-fight screen shares this layout but
+    # has no scoresheet in its panel column. The row count is PUSHED rather
+    # than left for the sheet to measure -- the style assignment below does
+    # not take effect until Textual's next layout pass, so a sheet that read
+    # its own height would be a resize behind.
+    for sheet in screen.query("#log"):
+        sheet.styles.height = sheet_height(height)
+        sheet.rows = sheet_rows(height)
     return cell
+
+
+def sheet_rows(column_height: int) -> int:
+    """How many move rows the scoresheet shows beside a board this tall.
+
+    Derived from the column rather than measured off the live widgets: the
+    two panels above it are fixed heights, so this is arithmetic, and
+    measuring siblings mid-layout is the mis-measurement this module exists
+    to avoid.
+    """
+    afforded = (column_height
+                - (ENEMY_PANEL_ROWS + PANEL_GAP)
+                - (PURSE_PANEL_ROWS + PANEL_GAP)
+                - SHEET_CHROME)
+    fits = [rung for rung in SHEET_ROWS if rung <= afforded]
+    # The floor even when it does not fit, for the same reason `choose_cell`
+    # returns its floor rung: a cramped panel beats a one-line one, and below
+    # the supported terminal size the whole screen is compromised anyway.
+    return fits[-1] if fits else SHEET_ROWS[0]
+
+
+def sheet_height(column_height: int) -> int:
+    """Outer height of the scoresheet panel, borders included."""
+    return sheet_rows(column_height) + SHEET_CHROME

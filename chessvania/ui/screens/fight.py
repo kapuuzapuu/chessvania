@@ -1,4 +1,4 @@
-"""The fight screen: board, bench, live payout readout, move log, inspect.
+"""The fight screen: board, bench, purse and scoresheet.
 
 Driven entirely by the keyboard -- arrows move a cursor, enter selects and then
 commits. The mouse drives the same cursor, so there is only ever one highlight
@@ -14,13 +14,12 @@ import chess
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Static
 
 from ... import config
-from ...core.army import PIECE_NAMES, PIECE_VALUES, Piece
-from ...core.economy import tier_ladder
+from ...core.army import PIECE_NAMES, Piece
 from ...core.fight import Fight, Outcome
 from ...core.run import RunState
 from .. import theme
@@ -29,7 +28,10 @@ from ..widgets.bench import COLUMNS as BENCH_COLUMNS
 from ..widgets.bench import BenchView
 from ..widgets.board_view import BoardView
 from ..widgets.devbar import DevBar
-from ..widgets.topbar import TopBar
+from ..widgets.enemy import EnemyCard
+from ..widgets.purse import Purse
+from ..widgets.scoresheet import Scoresheet
+from ..widgets.road import Road
 
 DELTAS = {"up": (0, 1), "down": (0, -1), "left": (-1, 0), "right": (1, 0)}
 
@@ -89,20 +91,18 @@ class FightScreen(Screen):
     # -- layout ----------------------------------------------------------
 
     def compose(self) -> ComposeResult:
-        yield TopBar(id="topbar")
         with Horizontal(id="main"):
             with Vertical(id="left"):
+                yield Road(id="road")
                 yield Static(id="bench-label")
                 yield BenchView(id="bench")
-                yield Static(id="bench-note")
             with Vertical(id="center"):
                 yield BoardView(id="board")
                 yield Static(id="status")
             with Vertical(id="right"):
-                yield Static(id="payout", classes="panel")
-                with VerticalScroll(id="logbox", classes="panel"):
-                    yield Static(id="log")
-                yield Static(id="inspect", classes="panel")
+                yield EnemyCard(id="enemy", classes="panel")
+                yield Purse(id="payout", classes="panel")
+                yield Scoresheet(id="log", classes="panel")
         yield DevBar(id="devbar")
 
     def on_mount(self) -> None:
@@ -126,8 +126,8 @@ class FightScreen(Screen):
         }
 
     def refresh_all(self) -> None:
-        spec_label = "%s · %s" % (self.fight.enemy_name, self.fight.tier)
-        self.query_one("#topbar", TopBar).show(self.run, spec_label)
+        self.query_one("#road", Road).show(self.run)
+        self.query_one("#enemy", EnemyCard).show(self.fight)
 
 
         last = self.fight.board.peek() if self.fight.board.move_stack else None
@@ -142,13 +142,9 @@ class FightScreen(Screen):
         bench.set_cursor(self.bench_cursor, active=self.zone is Zone.BENCH)
 
         self.query_one("#bench-label", Static).update(self._bench_label(army))
-        self.query_one("#bench-note", Static).update(
-            Text("reserves\noff-board", style=theme.FAINT)
-        )
-        self.query_one("#payout", Static).update(self._payout_panel())
-        self.query_one("#log", Static).update(self._log_panel())
+        self.query_one("#payout", Purse).show(self.run, self.fight.player_moves)
+        self.query_one("#log", Scoresheet).show(self.fight)
         self._refresh_status()
-        self._refresh_inspect()
         if config.DEV_MODE:
             self.query_one("#devbar", DevBar).show(self.run, self.fight)
 
@@ -162,52 +158,6 @@ class FightScreen(Screen):
         text.append("INVENTORY ", style=theme.DIM)
         text.append("%d" % army.inventory_count, style=theme.TEXT)
         text.append("/%d" % config.INVENTORY_CAP, style=theme.GHOST)
-        return text
-
-    def _payout_panel(self) -> Text:
-        moves = self.fight.player_moves
-        payout = self.run.preview_payout(moves)
-
-        text = Text()
-        text.append("IF YOU WIN NOW\n", style=theme.DIM)
-        text.append("moves ", style=theme.DIM)
-        text.append("%-4d" % moves, style="%s bold" % theme.TEXT)
-        text.append("→ %s %d gold\n" % (config.GOLD_GLYPH, payout.total), style=theme.GOLD)
-
-        current = None
-        for threshold, _ in tier_ladder():
-            if moves <= threshold:
-                current = threshold
-                break
-
-        for index, (threshold, gold) in enumerate(tier_ladder()):
-            if index:
-                text.append(" · ", style=theme.GHOST)
-            text.append(
-                "≤%d → %s%d" % (threshold, config.GOLD_GLYPH, gold),
-                style=theme.GREEN if threshold == current else theme.FAINT,
-            )
-        text.append("\n")
-
-        if self.run.banked_skip_bonus:
-            text.append("skip-bonus banked ", style=theme.DIM)
-            text.append("+%d" % self.run.banked_skip_bonus, style=theme.GREEN)
-            text.append(" (already counted above)", style=theme.GHOST)
-        else:
-            text.append("no banked bonus", style=theme.GHOST)
-        return text
-
-    def _log_panel(self) -> Text:
-        text = Text()
-        text.append("MOVE LOG\n", style=theme.DIM)
-        for entry in self.fight.log[-40:]:
-            who = "you" if entry.by_player else self.fight.enemy_name
-            style = theme.TEXT if entry.by_player else theme.ENEMY_PIECE
-            if entry.capture:
-                style = theme.GOLD if entry.by_player else theme.RED
-            text.append("› ", style=theme.GHOST)
-            text.append("%s · %s" % (who, entry.text), style=style)
-            text.append("\n")
         return text
 
     # -- status line -----------------------------------------------------
@@ -266,65 +216,6 @@ class FightScreen(Screen):
                 style="%s bold" % theme.GOLD if chosen else theme.FAINT,
             )
         text.append("\n←→ or q/r/b/n · enter", style=theme.GHOST)
-        return text
-
-    # -- inspect ---------------------------------------------------------
-
-    def _refresh_inspect(self) -> None:
-        if self.zone is Zone.BENCH:
-            self._inspect(self._bench_inspect())
-        else:
-            self._inspect(self._square_inspect(self.cursor))
-
-    def _inspect(self, message: Text) -> None:
-        panel = Text()
-        panel.append("INSPECT\n", style=theme.DIM)
-        panel.append_text(message)
-        self.query_one("#inspect", Static).update(panel)
-
-    def _square_inspect(self, square: Optional[chess.Square]) -> Text:
-        if square is None:
-            return Text("—", style=theme.GHOST)
-        piece = self.fight.board.piece_at(square)
-        if piece is None:
-            return self._empty_square_inspect(square)
-
-        text = Text()
-        if piece.color == chess.WHITE:
-            pid = self.fight.tracker.at.get(square)
-            owned = self._by_id.get(pid) if pid is not None else None
-            color = theme.player_color(owned) if owned else theme.FRESH
-            text.append("%s " % theme.piece_glyph(piece.piece_type, piece.color),
-                        style=color)
-            text.append(PIECE_NAMES[piece.piece_type], style=theme.TEXT)
-            text.append(" · yours · value %d" % PIECE_VALUES[piece.piece_type],
-                        style=theme.FAINT)
-            if owned:
-                text.append("\n%s · %d fights survived"
-                            % (owned.veterancy_label, owned.fights_survived),
-                            style=color if owned.veterancy else theme.FAINT)
-        else:
-            text.append("%s " % theme.piece_glyph(piece.piece_type, piece.color),
-                        style=theme.enemy_color(piece.piece_type))
-            text.append("Enemy %s" % PIECE_NAMES[piece.piece_type], style=theme.TEXT)
-            text.append(" · value %d" % PIECE_VALUES[piece.piece_type], style=theme.FAINT)
-
-        return text
-
-    def _empty_square_inspect(self, square: chess.Square) -> Text:
-        return Text(chess.square_name(square), style=theme.GHOST)
-
-    def _bench_inspect(self) -> Text:
-        inventory = self.run.army.inventory
-        if self.bench_cursor >= len(inventory):
-            return Text("empty bench slot", style=theme.GHOST)
-        piece = inventory[self.bench_cursor]
-        text = Text()
-        text.append("%s " % theme.piece_glyph_for(piece), style=theme.player_color(piece))
-        text.append(piece.name, style=theme.TEXT)
-        text.append(" · benched · value %d" % piece.value, style=theme.FAINT)
-        text.append("\n%s · %d fights survived"
-                    % (piece.veterancy_label, piece.fights_survived), style=theme.FAINT)
         return text
 
     # -- keyboard --------------------------------------------------------
@@ -463,7 +354,6 @@ class FightScreen(Screen):
         if not config.DEV_MODE:
             return
         self.run.gold += config.DEV_GOLD_STEP
-        self.query_one("#topbar", TopBar).tick_gold_to(self.run.gold)
         self.set_status("dev · +%d gold" % config.DEV_GOLD_STEP, theme.GOLD)
         self.refresh_all()
 
@@ -518,9 +408,10 @@ class FightScreen(Screen):
         self._activate(event.square)
 
     def on_board_view_cursor_moved(self, event: BoardView.CursorMoved) -> None:
+        """Keep the screen's cursor in step with the hover, so the next
+        keystroke carries on from where the mouse left it."""
         if event.square is not None and self.zone is Zone.BOARD:
             self.cursor = event.square
-            self._refresh_inspect()
 
     def on_bench_view_slot_clicked(self, event: BenchView.SlotClicked) -> None:
         self.zone = Zone.BENCH
@@ -530,7 +421,6 @@ class FightScreen(Screen):
     def on_bench_view_cursor_moved(self, event: BenchView.CursorMoved) -> None:
         if event.index is not None and self.zone is Zone.BENCH:
             self.bench_cursor = event.index
-            self._refresh_inspect()
 
     # -- play ------------------------------------------------------------
 

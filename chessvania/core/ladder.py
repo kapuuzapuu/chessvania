@@ -34,19 +34,19 @@ class FightSpec:
 
     @property
     def is_final(self) -> bool:
-        return self.tier == config.TIER_FINAL
+        return self.tier == config.TIER_IV
 
 
 def boss_tier(ante: int) -> str:
     """Antes 1-2 end in a mini-boss; ante 3 ends the run."""
-    return config.TIER_FINAL if ante == config.ANTES else config.TIER_MINIBOSS
+    return config.TIER_IV if ante == config.ANTES else config.TIER_III
 
 
 def tier_for_slot(ante: int, index: int) -> str:
     if index == 0:
-        return config.TIER_LOW
+        return config.TIER_I
     if index == 1:
-        return config.TIER_MID
+        return config.TIER_II
     return boss_tier(ante)
 
 

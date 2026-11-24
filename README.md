@@ -41,13 +41,17 @@ STOCKFISH_PATH=/opt/homebrew/bin/stockfish ./.venv/bin/python -m chessvania
 
 If it can't find one, it exits with install instructions rather than a stack trace.
 
-Terminal should be at least **104×37**. That is the floor, not the target — the
+Terminal should be at least **100×29**. That is the floor, not the target — the
 board picks the largest squares that fit and redraws as you resize the window:
 
 | terminal | square | board |
 |---|---|---|
-| 104×37 | 7×3 | 60×25 |
-| 120×45 | 9×4 | 76×33 |
+| 100×29 | 7×3 | 56×24 |
+| 116×37 | 9×4 | 72×32 |
+
+Ranks and files are written inside the corner of the edge squares rather than
+in gutters around the board, which is where four of those columns and one of
+those rows came from.
 
 Pieces are drawn out of block characters rather than typed as Unicode glyphs,
 which is why the floor is what it is: smaller squares existed once and could not

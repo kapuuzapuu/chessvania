@@ -58,3 +58,14 @@ def test_kings_are_not_for_sale():
     from chessvania.core.economy import buyable_types
 
     assert chess.KING not in buyable_types()
+
+
+def test_every_payout_tier_spans_the_same_number_of_moves():
+    """The live readout draws one tick per move of the tier you are in, so an
+    uneven tier would make the bar change length as you fall through the
+    ladder. Keep them equal or redesign the bar."""
+    previous, spans = 0, []
+    for threshold, _ in config.PAYOUT_TIERS:
+        spans.append(threshold - previous)
+        previous = threshold
+    assert len(set(spans)) == 1, spans

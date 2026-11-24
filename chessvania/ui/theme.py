@@ -68,8 +68,28 @@ This one marks a fact about the position."""
 # text
 TEXT = "#c3c8d2"
 DIM = "#5a5f6b"
+LABEL = "#8A8275"
 FAINT = "#4a4e58"
 GHOST = "#3a3d45"
+
+# the two sides, as colour
+#
+# Each of these means exactly one thing and is never used decoratively: teal
+# is YOU -- your cursor, your turn, where you may go. Vermilion is THEM --
+# enemy pieces, tiers, bosses. Nothing else may borrow either.
+
+TEAL = "#72C6CF"
+VERMILION = "#E5553C"
+VERMILION_DIM = "#7A3328"
+RULE_STRONG = "#3A352F"
+
+COORD = "#6A6F7B"
+"""Rank and file labels, which live inside the corner of an edge square.
+
+Chosen by measuring rather than by eye: it has to stay legible on all nine
+square states, and the worst of them is the cursor tint. GHOST falls to 1.07
+contrast on a target square -- invisible -- and this holds 1.8 to 3.5
+everywhere while sitting well below any piece colour."""
 
 # accents
 GOLD = "#e0b24c"
@@ -121,8 +141,8 @@ def gold(amount: int) -> str:
 #
 # The BOARD draws sprites now (see `ui.piece_art`), so these dress the places a
 # sprite will not fit: the bench, the shop rows, the loadout and bestiary
-# summaries, the inspect panel. White is outlined and Black solid, the printed
-# diagram convention.
+# summaries. White is outlined and Black solid, the printed diagram
+# convention.
 
 
 def piece_glyph(piece_type: int, color: bool = chess.WHITE) -> str:

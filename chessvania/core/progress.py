@@ -151,7 +151,7 @@ CHECKS: Dict[str, Callable[[ProgressEvent], bool]] = {
     "untouched": lambda e: e.won_fight and e.casualties == 0,
     "ante_up": _cleared_an_ante,
     "first_boss": lambda e: e.won_fight and e.tier in (
-        config.TIER_MINIBOSS, config.TIER_FINAL),
+        config.TIER_III, config.TIER_IV),
     "veteran": lambda e: any(
         p.fights_survived >= config.VETERAN_THRESHOLDS[1]
         for p in e.run.army.all_pieces()
